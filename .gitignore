@@ -1,0 +1,11 @@
+/models
+__pycache__/
+*.pyc
+.venv/
+build/
+dsh-plugins/node_modules/
+dsh-plugins/packages/*/node_modules/
+dsh-plugins/packages/*/lib/
+dsh-plugins/packages/*/tsconfig.tsbuildinfo
+dsh-plugins/dist/
+.DS_Store

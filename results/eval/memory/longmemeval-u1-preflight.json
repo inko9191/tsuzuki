@@ -1,0 +1,9 @@
+{
+  "time": "2026-10-22T11:47:26.810803+09:00",
+  "fact_sessions": 1442,
+  "fact_input_max": 19257,
+  "over_8192": 2,
+  "fact_context": 32768,
+  "rule": "smallest of 16384/32768 >= ceil(1.10*(max+1500+128)) when any input misses 8192",
+  "before_any_generation": true
+}

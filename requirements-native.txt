@@ -1,0 +1,2 @@
+# Build-time dependency for the requested Python extension; no runtime dependency.
+pybind11==3.1.0

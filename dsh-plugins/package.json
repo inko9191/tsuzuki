@@ -1,0 +1,25 @@
+{
+  "name": "tsuzuki-dsh-plugins",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@10.26.1",
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "scripts": {
+    "build": "tsc -b packages/text-embeddings packages/text-embeddings-openai packages/text-embeddings-tsuzuki packages/tsuzuki",
+    "clean": "rm -rf packages/*/lib packages/*/tsconfig.tsbuildinfo",
+    "test": "pnpm run build && node --test tests/*.test.mjs packages/tsuzuki/test/*.test.mjs",
+    "pack": "pnpm -r --filter './packages/*' pack --pack-destination ../dist"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "typescript": "~5.9.3",
+    "@deepseek-ai/cordis": "4.0.5-alpha.1",
+    "dsh-text-embeddings": "workspace:*",
+    "dsh-text-embeddings-openai": "workspace:*",
+    "dsh-text-embeddings-tsuzuki": "workspace:*",
+    "dsh-tsuzuki": "workspace:*"
+  }
+}

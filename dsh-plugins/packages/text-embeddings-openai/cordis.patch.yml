@@ -1,0 +1,16 @@
+# dsh-text-embeddings-openai bundle: registers the provider row dormant.
+# Enable exactly one ctx.textEmbeddings provider in the profile's cordis.patch.yml:
+#
+#   - id: text-embeddings-openai
+#     disabled: false
+#     config:
+#       baseUrl: https://api.example.com/v1
+#       apiKey: !!js process.env.EMBEDDINGS_API_KEY
+#       model: text-embedding-3-small
+#       dimensions: 1536
+#
+# A patch replaces the row's whole `config`, so restate every key you set.
+- insert:
+    - id: text-embeddings-openai
+      name: dsh-text-embeddings-openai
+      disabled: true

@@ -1,0 +1,180 @@
+{
+ "judge": "Claude Opus 5.5 (this session, blinded sheet; the experiment designer)",
+ "questions": 30,
+ "accuracy": {
+  "C-final-norw": 0.5333333333333333,
+  "S": 0.5,
+  "T": 0.5666666666666667,
+  "V": 0.6
+ },
+ "qwen_accuracy": {
+  "C-final-norw": 0.5333333333333333,
+  "S": 0.5,
+  "T": 0.5333333333333333,
+  "V": 0.5666666666666667
+ },
+ "primary_rule_on_claude_labels": {
+  "V_minus_C": {
+   "overall": {
+    "questions": 30,
+    "difference": 0.06666666666666667,
+    "ci95": [
+     0.0,
+     0.16666666666666666
+    ],
+    "verdict": "判定不能",
+    "sign_test": {
+     "wins": 2,
+     "losses": 0,
+     "ties": 28,
+     "n": 2,
+     "p_two_sided": 0.5
+    }
+   },
+   "focus_update_temporal": {
+    "questions": 20,
+    "difference": 0.1,
+    "ci95": [
+     0.0,
+     0.25
+    ],
+    "verdict": "傾向参考",
+    "sign_test": {
+     "wins": 2,
+     "losses": 0,
+     "ties": 18,
+     "n": 2,
+     "p_two_sided": 0.5
+    }
+   }
+  },
+  "S_minus_C": {
+   "overall": {
+    "questions": 30,
+    "difference": -0.03333333333333333,
+    "ci95": [
+     -0.1,
+     0.0
+    ],
+    "verdict": "判定不能",
+    "sign_test": {
+     "wins": 0,
+     "losses": 1,
+     "ties": 29,
+     "n": 1,
+     "p_two_sided": 1.0
+    }
+   },
+   "focus_update_temporal": {
+    "questions": 20,
+    "difference": -0.05,
+    "ci95": [
+     -0.15,
+     0.0
+    ],
+    "verdict": "傾向参考",
+    "sign_test": {
+     "wins": 0,
+     "losses": 1,
+     "ties": 19,
+     "n": 1,
+     "p_two_sided": 1.0
+    }
+   }
+  },
+  "T_minus_S": {
+   "overall": {
+    "questions": 30,
+    "difference": 0.06666666666666667,
+    "ci95": [
+     0.0,
+     0.16666666666666666
+    ],
+    "verdict": "判定不能",
+    "sign_test": {
+     "wins": 2,
+     "losses": 0,
+     "ties": 28,
+     "n": 2,
+     "p_two_sided": 0.5
+    }
+   },
+   "focus_update_temporal": {
+    "questions": 20,
+    "difference": 0.1,
+    "ci95": [
+     0.0,
+     0.25
+    ],
+    "verdict": "傾向参考",
+    "sign_test": {
+     "wins": 2,
+     "losses": 0,
+     "ties": 18,
+     "n": 2,
+     "p_two_sided": 0.5
+    }
+   }
+  },
+  "V_minus_T": {
+   "overall": {
+    "questions": 30,
+    "difference": 0.03333333333333333,
+    "ci95": [
+     0.0,
+     0.1
+    ],
+    "verdict": "判定不能",
+    "sign_test": {
+     "wins": 1,
+     "losses": 0,
+     "ties": 29,
+     "n": 1,
+     "p_two_sided": 1.0
+    }
+   },
+   "focus_update_temporal": {
+    "questions": 20,
+    "difference": 0.05,
+    "ci95": [
+     0.0,
+     0.15
+    ],
+    "verdict": "傾向参考",
+    "sign_test": {
+     "wins": 1,
+     "losses": 0,
+     "ties": 19,
+     "n": 1,
+     "p_two_sided": 1.0
+    }
+   }
+  }
+ },
+ "agreement": {
+  "percent": 0.9833333333333333,
+  "cohen_kappa": 0.9664429530201342,
+  "by_arm": {
+   "C-final-norw": 1.0,
+   "S": 1.0,
+   "T": 0.9666666666666667,
+   "V": 0.9666666666666667
+  }
+ },
+ "disagreements": [
+  {
+   "question_id": "2ebe6c92",
+   "arm": "T",
+   "stratum": "temporal-reasoning",
+   "claude": 1,
+   "qwen": 0
+  },
+  {
+   "question_id": "2ebe6c92",
+   "arm": "V",
+   "stratum": "temporal-reasoning",
+   "claude": 1,
+   "qwen": 0
+  }
+ ]
+}

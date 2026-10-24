@@ -1,0 +1,76 @@
+tsuzuki
+Copyright 2026 tsuzuki contributors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Names: tsuzuki was developed under the working name "egemma". The embedding
+engine's internal names (egemma_server, egemma_native, egemma_ref, egemma-cli,
+EGEMMA_* variables) keep that name. "EmbeddingGemma" and "Gemma" are names of
+Google's models. This project is an independent, unofficial implementation and
+is not affiliated with or endorsed by Google.
+
+Third-party material and attributions
+-------------------------------------
+
+1. Hugging Face Transformers (Apache License 2.0)
+   https://github.com/huggingface/transformers  (v5.19.0)
+   reference/egemma_ref/config.py and reference/egemma_ref/model.py re-implement,
+   from scratch and with line citations, the configuration derivation and forward
+   pass of models/embedding_gemma2/{configuration,modeling}_embedding_gemma2.py,
+   modeling_rope_utils.py, and the processor's special-token rule
+   (processing_utils.py, tokenization_utils_base.py). The C++/Metal engine
+   (native/) reproduces the same numerical behavior. No source file is copied.
+
+2. vLLM (Apache License 2.0)
+   https://github.com/vllm-project/vllm  (commit 1dfe9fb)
+   vllm/model_executor/models/embedding_gemma2.py is cited as a second source for
+   the per-layer-embedding and attention details in reference/egemma_ref/model.py.
+
+3. FlashAttention (paper: Dao et al., 2022, https://arxiv.org/abs/2205.14135)
+   The tiled online-softmax attention in native/kernels.metal follows the
+   published algorithm. No code is copied.
+
+4. Apple Metal Performance Primitives (Apple SDK)
+   The optional MPP matmul path (native/kernels.metal, EGEMMA_MPP) calls
+   mpp::tensor_ops::matmul2d as documented in the macOS SDK header
+   MPPTensorOpsMatMul2d.h. The framework is provided by the operating system and
+   is not redistributed.
+
+5. DeepSeek Harness / Cordis (MIT License)
+   https://github.com/deepseek-ai/deepseek-harness  (dsh-v0.2.1-alpha.2)
+   The dsh-plugins/ packages follow the documented Service Definition /
+   Service Provider pattern and the request/spec split of @deepseek-ai/dsh-shell.
+   @deepseek-ai/cordis, @deepseek-ai/schemastery, and @deepseek-ai/dsh-subprocess
+   are peer dependencies supplied by the dsh installation and are not bundled.
+
+6. LongMemEval (MIT License, Copyright (c) 2024 Di Wu)
+   https://github.com/xiaowu0162/LongMemEval
+   The evaluation scripts (scripts/eval/) grade answers with LongMemEval's official
+   per-question-type judge prompts; the MIT license text is recorded with them in
+   results/eval/memory/longmemeval-g1-judge.json. The dataset is not redistributed:
+   only question IDs, hashes and aggregate scores are committed.
+
+Not redistributed (fetched or built separately)
+-----------------------------------------------
+- Model weights. None are part of this repository or of any package built from it.
+  - EmbeddingGemma 300m (google/embeddinggemma-300m), the model behind the
+    published memory results, is provided under and subject to the Gemma Terms of
+    Use (https://ai.google.dev/gemma/terms) and the Gemma Prohibited Use Policy.
+    Users accept those terms when they download it (from Hugging Face, or with
+    "ollama pull embeddinggemma").
+  - EmbeddingGemma 2 (google/embeddinggemma-2) is licensed under the Apache
+    License 2.0 according to its model card, which also refers to the Gemma
+    Prohibited Use Policy. It is downloaded by scripts/fetch_model.sh.
+  - Gemma 4 E2B (google/gemma-4-E2B-it-qat-q4_0-gguf), used as the answering
+    model in the E1 and J1 evaluations, is licensed under the Apache License 2.0.
+- LoCoMo (CC BY-NC) and the MTEB/JMTEB datasets were used for evaluation only;
+  their text is not included.
+- Ollama (MIT License, https://ollama.com) is an optional runtime for embeddings on
+  machines without this repository's engine; it is installed separately.
+- llama.cpp (MIT) and its bundled nlohmann/json (MIT) were cloned and built
+  separately for comparison benchmarks during development; llama.cpp's
+  llama-server is an optional runtime for the chat model. Neither is part of
+  this repository.
+- Runtime and build dependencies installed from package registries: numpy (BSD-3),
+  tokenizers (Apache-2.0), pybind11 (BSD-3), PyTorch (BSD-3) and
+  sentence-transformers (Apache-2.0) for validation, TypeScript (Apache-2.0).

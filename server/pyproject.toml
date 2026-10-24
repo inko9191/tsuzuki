@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "egemma-server"
+version = "0.1.0"
+description = "OpenAI-compatible embeddings daemon for the unofficial EmbeddingGemma C++/Metal engine of tsuzuki (not affiliated with Google)"
+license = "Apache-2.0"
+requires-python = ">=3.11"
+# The _egemma_native extension is built from this repository (see docs/NATIVE.md)
+# and located through --build-dir / EGEMMA_BUILD_DIR.
+dependencies = ["numpy>=1.26", "tokenizers>=0.20"]
+
+[project.scripts]
+egemma-server = "egemma_server.__main__:main"
+
+[tool.setuptools]
+packages = ["egemma_server"]

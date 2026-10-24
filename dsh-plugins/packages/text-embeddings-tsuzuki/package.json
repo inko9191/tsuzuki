@@ -1,0 +1,30 @@
+{
+  "name": "dsh-text-embeddings-tsuzuki",
+  "version": "0.1.0",
+  "description": "EmbeddingGemma provider for ctx.textEmbeddings in DeepSeek Harness (part of tsuzuki): supervises the local egemma-server C++/Metal daemon (OpenAI-compatible /v1/embeddings)",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": { "types": "./lib/index.d.ts", "default": "./lib/index.js" },
+    "./package.json": "./package.json"
+  },
+  "files": ["lib/**/*.js", "lib/**/*.d.ts", "cordis.patch.yml", "README.md", "LICENSE", "NOTICE"],
+  "keywords": ["deepseek-harness", "dsh", "dsh-plugin", "embeddings", "text-embeddings", "embeddinggemma", "metal", "apple-silicon"],
+  "engines": { "node": "^22.19.0 || >=24.0.0" },
+  "publishConfig": { "access": "public" },
+  "dsh": { "bundle": { "patch": "./cordis.patch.yml" } },
+  "peerDependencies": {
+    "dsh-text-embeddings": "^0.1.0",
+    "@deepseek-ai/cordis": "~4.0.4 || ~4.0.5-alpha.1",
+    "@deepseek-ai/schemastery": "~3.18.4 || ~3.18.5-alpha.1",
+    "@deepseek-ai/dsh-subprocess": "0.2.0-rc.2 || 0.2.1-alpha.2"
+  },
+  "devDependencies": {
+    "dsh-text-embeddings": "workspace:^",
+    "@deepseek-ai/cordis": "4.0.5-alpha.1",
+    "@deepseek-ai/schemastery": "3.18.5-alpha.1",
+    "@deepseek-ai/dsh-subprocess": "0.2.1-alpha.2"
+  }
+}

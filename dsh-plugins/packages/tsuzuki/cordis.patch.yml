@@ -1,0 +1,12 @@
+# dsh-tsuzuki bundle: long-term conversation memory.
+# Needs one ctx.textEmbeddings provider (dsh-text-embeddings-tsuzuki or -openai) and, for facts and
+# rerank, an OpenAI-compatible chat endpoint (default: the local llama.cpp server on 127.0.0.1:8080).
+# Override in the profile's cordis.patch.yml; a patch replaces the row's whole `config`:
+#
+#   - id: tsuzuki
+#     config:
+#       llm: { baseUrl: http://127.0.0.1:8080/v1 }
+#       recall: { rerank: false }
+- insert:
+    - id: tsuzuki
+      name: dsh-tsuzuki

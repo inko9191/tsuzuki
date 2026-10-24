@@ -1,0 +1,23 @@
+{
+  "name": "dsh-text-embeddings",
+  "version": "0.1.0",
+  "description": "Text-embedding Service Definition (ctx.textEmbeddings) for DeepSeek Harness, with the shared OpenAI-compatible /embeddings client",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": { "types": "./lib/index.d.ts", "default": "./lib/index.js" },
+    "./package.json": "./package.json"
+  },
+  "files": ["lib/**/*.js", "lib/**/*.d.ts", "README.md", "LICENSE", "NOTICE"],
+  "keywords": ["deepseek-harness", "dsh", "dsh-plugin", "embeddings", "text-embeddings"],
+  "engines": { "node": "^22.19.0 || >=24.0.0" },
+  "publishConfig": { "access": "public" },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "~4.0.4 || ~4.0.5-alpha.1"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.0.5-alpha.1"
+  }
+}

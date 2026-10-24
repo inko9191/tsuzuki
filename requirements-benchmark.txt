@@ -1,0 +1,2 @@
+# Only for producing benchmark graphs, not a native inference dependency.
+matplotlib==3.11.2

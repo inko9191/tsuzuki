@@ -1,0 +1,13 @@
+# dsh-text-embeddings-tsuzuki bundle: registers the provider row dormant.
+# Enable exactly one ctx.textEmbeddings provider in the profile's cordis.patch.yml:
+#
+#   - id: text-embeddings-tsuzuki
+#     disabled: false
+#     config:
+#       engineRoot: /absolute/path/to/tsuzuki
+#
+# A patch replaces the row's whole `config`, so restate every key you set.
+- insert:
+    - id: text-embeddings-tsuzuki
+      name: dsh-text-embeddings-tsuzuki
+      disabled: true

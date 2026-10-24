@@ -1,0 +1,109 @@
+{
+ "questions": 40,
+ "AT_eligible": 40,
+ "AT": {
+  "correct": 0.45,
+  "abstain": 0.425,
+  "input_tokens": 116288.65,
+  "answer_seconds": 431.21794186980696,
+  "by_stratum": {
+   "abstention": 1.0,
+   "knowledge-update": 0.7,
+   "multi-session": 0.4,
+   "single-session": 0.5,
+   "temporal-reasoning": 0.0
+  }
+ },
+ "comparisons": {
+  "primary_P_minus_AT": {
+   "questions": 40,
+   "difference": 0.225,
+   "ci95": [
+    0.1,
+    0.35
+   ],
+   "verdict": "上回る",
+   "sign": {
+    "wins": 9,
+    "losses": 0,
+    "ties": 31,
+    "n": 9,
+    "p_two_sided": 0.00390625
+   }
+  },
+  "AT_minus_A": {
+   "questions": 40,
+   "difference": 0.125,
+   "ci95": [
+    0.025,
+    0.225
+   ],
+   "verdict": "傾向参考",
+   "sign": {
+    "wins": 5,
+    "losses": 0,
+    "ties": 35,
+    "n": 5,
+    "p_two_sided": 0.0625
+   }
+  },
+  "C512_minus_AT": {
+   "questions": 40,
+   "difference": 0.025,
+   "ci95": [
+    -0.1,
+    0.15
+   ],
+   "verdict": "傾向参考",
+   "sign": {
+    "wins": 4,
+    "losses": 3,
+    "ties": 33,
+    "n": 7,
+    "p_two_sided": 1.0
+   }
+  }
+ },
+ "rows_AT": {
+  "031748ae": 1,
+  "08e075c7": 1,
+  "0bc8ad92": 0,
+  "1faac195": 1,
+  "22d2cb42": 0,
+  "3ba21379": 1,
+  "3c1045c8": 0,
+  "42ec0761": 1,
+  "45dc21b6": 1,
+  "5025383b": 1,
+  "59524333": 0,
+  "61f8c8f8": 1,
+  "6e984302": 0,
+  "80ec1f4f": 1,
+  "80ec1f4f_abs": 1,
+  "87f22b4a": 0,
+  "88432d0a_abs": 1,
+  "8979f9ec": 1,
+  "89941a93": 1,
+  "982b5123_abs": 1,
+  "af8d2e46": 0,
+  "afdc33df": 0,
+  "c4ea545c": 0,
+  "d6062bb9": 0,
+  "d6233ab6": 0,
+  "dc439ea3": 1,
+  "e48988bc": 1,
+  "e4e14d04": 0,
+  "eace081b": 1,
+  "f685340e_abs": 1,
+  "gpt4_0a05b494": 0,
+  "gpt4_15e38248": 0,
+  "gpt4_1e4a8aeb": 0,
+  "gpt4_4ef30696": 0,
+  "gpt4_59c863d7": 0,
+  "gpt4_7abb270c": 0,
+  "gpt4_9a159967": 0,
+  "gpt4_ab202e7f": 0,
+  "gpt4_e414231e": 0,
+  "gpt4_f420262c": 0
+ }
+}

@@ -1,0 +1,1633 @@
+{
+  "questions": 30,
+  "metrics": {
+    "C-final-norw": {
+      "multi-session": {
+        "questions": 4,
+        "correct": 0.5,
+        "f1": 0.2763157894736842,
+        "abstention": 0.25,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      },
+      "overall": {
+        "questions": 30,
+        "correct": 0.5333333333333333,
+        "f1": 0.3534064701395432,
+        "abstention": 0.4,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      },
+      "temporal-reasoning": {
+        "questions": 10,
+        "correct": 0.4,
+        "f1": 0.31333333333333335,
+        "abstention": 0.5,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      },
+      "knowledge-update": {
+        "questions": 10,
+        "correct": 0.5,
+        "f1": 0.47549019607843146,
+        "abstention": 0.2,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      },
+      "single-session": {
+        "questions": 3,
+        "correct": 0.6666666666666666,
+        "f1": 0.5362318840579711,
+        "abstention": 0.3333333333333333,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      },
+      "abstention": {
+        "questions": 3,
+        "correct": 1.0,
+        "f1": 0.0,
+        "abstention": 1.0,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      },
+      "single-session-user": {
+        "questions": 1,
+        "correct": 1.0,
+        "f1": 1.0,
+        "abstention": 0.0,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      },
+      "single-session-assistant": {
+        "questions": 1,
+        "correct": 1.0,
+        "f1": 0.6086956521739131,
+        "abstention": 0.0,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      },
+      "single-session-preference": {
+        "questions": 1,
+        "correct": 0.0,
+        "f1": 0.0,
+        "abstention": 1.0,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      }
+    },
+    "S": {
+      "multi-session": {
+        "questions": 4,
+        "correct": 0.5,
+        "f1": 0.2763157894736842,
+        "abstention": 0.25,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      },
+      "overall": {
+        "questions": 30,
+        "correct": 0.5,
+        "f1": 0.3422953590284321,
+        "abstention": 0.43333333333333335,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      },
+      "temporal-reasoning": {
+        "questions": 10,
+        "correct": 0.3,
+        "f1": 0.27999999999999997,
+        "abstention": 0.6,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      },
+      "knowledge-update": {
+        "questions": 10,
+        "correct": 0.5,
+        "f1": 0.47549019607843146,
+        "abstention": 0.2,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      },
+      "single-session": {
+        "questions": 3,
+        "correct": 0.6666666666666666,
+        "f1": 0.5362318840579711,
+        "abstention": 0.3333333333333333,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      },
+      "abstention": {
+        "questions": 3,
+        "correct": 1.0,
+        "f1": 0.0,
+        "abstention": 1.0,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      },
+      "single-session-user": {
+        "questions": 1,
+        "correct": 1.0,
+        "f1": 1.0,
+        "abstention": 0.0,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      },
+      "single-session-assistant": {
+        "questions": 1,
+        "correct": 1.0,
+        "f1": 0.6086956521739131,
+        "abstention": 0.0,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      },
+      "single-session-preference": {
+        "questions": 1,
+        "correct": 0.0,
+        "f1": 0.0,
+        "abstention": 1.0,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      }
+    },
+    "T": {
+      "multi-session": {
+        "questions": 4,
+        "correct": 0.5,
+        "f1": 0.275,
+        "abstention": 0.25,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      },
+      "overall": {
+        "questions": 30,
+        "correct": 0.5333333333333333,
+        "f1": 0.36656436487638533,
+        "abstention": 0.36666666666666664,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      },
+      "temporal-reasoning": {
+        "questions": 10,
+        "correct": 0.4,
+        "f1": 0.35333333333333333,
+        "abstention": 0.4,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      },
+      "knowledge-update": {
+        "questions": 10,
+        "correct": 0.5,
+        "f1": 0.47549019607843146,
+        "abstention": 0.2,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      },
+      "single-session": {
+        "questions": 3,
+        "correct": 0.6666666666666666,
+        "f1": 0.5362318840579711,
+        "abstention": 0.3333333333333333,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      },
+      "abstention": {
+        "questions": 3,
+        "correct": 1.0,
+        "f1": 0.0,
+        "abstention": 1.0,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      },
+      "single-session-user": {
+        "questions": 1,
+        "correct": 1.0,
+        "f1": 1.0,
+        "abstention": 0.0,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      },
+      "single-session-assistant": {
+        "questions": 1,
+        "correct": 1.0,
+        "f1": 0.6086956521739131,
+        "abstention": 0.0,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      },
+      "single-session-preference": {
+        "questions": 1,
+        "correct": 0.0,
+        "f1": 0.0,
+        "abstention": 1.0,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      }
+    },
+    "V": {
+      "multi-session": {
+        "questions": 4,
+        "correct": 0.5,
+        "f1": 0.275,
+        "abstention": 0.25,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      },
+      "overall": {
+        "questions": 30,
+        "correct": 0.5666666666666667,
+        "f1": 0.36656436487638533,
+        "abstention": 0.36666666666666664,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      },
+      "temporal-reasoning": {
+        "questions": 10,
+        "correct": 0.4,
+        "f1": 0.35333333333333333,
+        "abstention": 0.4,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      },
+      "knowledge-update": {
+        "questions": 10,
+        "correct": 0.6,
+        "f1": 0.47549019607843146,
+        "abstention": 0.2,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      },
+      "single-session": {
+        "questions": 3,
+        "correct": 0.6666666666666666,
+        "f1": 0.5362318840579711,
+        "abstention": 0.3333333333333333,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      },
+      "abstention": {
+        "questions": 3,
+        "correct": 1.0,
+        "f1": 0.0,
+        "abstention": 1.0,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      },
+      "single-session-user": {
+        "questions": 1,
+        "correct": 1.0,
+        "f1": 1.0,
+        "abstention": 0.0,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      },
+      "single-session-assistant": {
+        "questions": 1,
+        "correct": 1.0,
+        "f1": 0.6086956521739131,
+        "abstention": 0.0,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      },
+      "single-session-preference": {
+        "questions": 1,
+        "correct": 0.0,
+        "f1": 0.0,
+        "abstention": 1.0,
+        "failure": 0.0,
+        "judge_failure": 0.0
+      }
+    }
+  },
+  "coverage": {
+    "C-final-norw": 0.4666666666666667,
+    "S": 0.4666666666666667,
+    "T": 0.4666666666666667,
+    "V": 0.5333333333333333
+  },
+  "V_notes_shown_questions": 4,
+  "primary_V_minus_C": {
+    "overall": {
+      "questions": 30,
+      "difference": 0.03333333333333333,
+      "ci95": [
+        0.0,
+        0.1
+      ],
+      "verdict": "判定不能",
+      "sign_test": {
+        "wins": 1,
+        "losses": 0,
+        "ties": 29,
+        "n": 1,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "gpt4_2f584639": 0,
+        "7405e8b1": 0,
+        "dfde3500": 0,
+        "f8c5f88b": 0,
+        "gpt4_483dd43c": 0,
+        "2ebe6c92": 0,
+        "gpt4_f420262d": 0,
+        "2ebe6c90": 0,
+        "4dfccbf7": 0,
+        "bc8a6e93_abs": 0,
+        "91b15a6e": 0,
+        "1d4da289": 0,
+        "gpt4_b5700ca0": 0,
+        "gpt4_21adecb5": 0,
+        "b46e15ee": 0,
+        "f9e8c073": 1,
+        "3a704032": 0,
+        "bf659f65": 0,
+        "6e984301": 0,
+        "505af2f5": 0,
+        "945e3d21": 0,
+        "d7c942c3": 0,
+        "6071bd76": 0,
+        "ce6d2d27": 0,
+        "07741c44": 0,
+        "18bc8abd": 0,
+        "ba61f0b9": 0,
+        "29f2956b_abs": 0,
+        "852ce960": 0,
+        "f4f1d8a4_abs": 0
+      }
+    },
+    "focus_update_temporal": {
+      "questions": 20,
+      "difference": 0.05,
+      "ci95": [
+        0.0,
+        0.15
+      ],
+      "verdict": "傾向参考",
+      "sign_test": {
+        "wins": 1,
+        "losses": 0,
+        "ties": 19,
+        "n": 1,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "gpt4_2f584639": 0,
+        "dfde3500": 0,
+        "gpt4_483dd43c": 0,
+        "2ebe6c92": 0,
+        "gpt4_f420262d": 0,
+        "2ebe6c90": 0,
+        "4dfccbf7": 0,
+        "gpt4_b5700ca0": 0,
+        "gpt4_21adecb5": 0,
+        "b46e15ee": 0,
+        "f9e8c073": 1,
+        "6e984301": 0,
+        "945e3d21": 0,
+        "d7c942c3": 0,
+        "6071bd76": 0,
+        "ce6d2d27": 0,
+        "07741c44": 0,
+        "18bc8abd": 0,
+        "ba61f0b9": 0,
+        "852ce960": 0
+      }
+    },
+    "knowledge-update": {
+      "questions": 10,
+      "difference": 0.1,
+      "ci95": [
+        0.0,
+        0.3
+      ],
+      "verdict": "傾向参考",
+      "sign_test": {
+        "wins": 1,
+        "losses": 0,
+        "ties": 9,
+        "n": 1,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "dfde3500": 0,
+        "f9e8c073": 1,
+        "945e3d21": 0,
+        "d7c942c3": 0,
+        "6071bd76": 0,
+        "ce6d2d27": 0,
+        "07741c44": 0,
+        "18bc8abd": 0,
+        "ba61f0b9": 0,
+        "852ce960": 0
+      }
+    },
+    "temporal-reasoning": {
+      "questions": 10,
+      "difference": 0.0,
+      "ci95": [
+        0.0,
+        0.0
+      ],
+      "verdict": "傾向参考",
+      "sign_test": {
+        "wins": 0,
+        "losses": 0,
+        "ties": 10,
+        "n": 0,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "gpt4_2f584639": 0,
+        "gpt4_483dd43c": 0,
+        "2ebe6c92": 0,
+        "gpt4_f420262d": 0,
+        "2ebe6c90": 0,
+        "4dfccbf7": 0,
+        "gpt4_b5700ca0": 0,
+        "gpt4_21adecb5": 0,
+        "b46e15ee": 0,
+        "6e984301": 0
+      }
+    },
+    "multi-session": {
+      "questions": 4,
+      "difference": 0.0,
+      "ci95": [
+        0.0,
+        0.0
+      ],
+      "verdict": "傾向参考",
+      "sign_test": {
+        "wins": 0,
+        "losses": 0,
+        "ties": 4,
+        "n": 0,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "7405e8b1": 0,
+        "91b15a6e": 0,
+        "3a704032": 0,
+        "bf659f65": 0
+      }
+    },
+    "single-session": {
+      "questions": 3,
+      "difference": 0.0,
+      "ci95": [
+        0.0,
+        0.0
+      ],
+      "verdict": "傾向参考",
+      "sign_test": {
+        "wins": 0,
+        "losses": 0,
+        "ties": 3,
+        "n": 0,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "f8c5f88b": 0,
+        "1d4da289": 0,
+        "505af2f5": 0
+      }
+    },
+    "abstention": {
+      "questions": 3,
+      "difference": 0.0,
+      "ci95": [
+        0.0,
+        0.0
+      ],
+      "verdict": "傾向参考",
+      "sign_test": {
+        "wins": 0,
+        "losses": 0,
+        "ties": 3,
+        "n": 0,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "bc8a6e93_abs": 0,
+        "29f2956b_abs": 0,
+        "f4f1d8a4_abs": 0
+      }
+    }
+  },
+  "S_minus_C": {
+    "overall": {
+      "questions": 30,
+      "difference": -0.03333333333333333,
+      "ci95": [
+        -0.1,
+        0.0
+      ],
+      "verdict": "判定不能",
+      "sign_test": {
+        "wins": 0,
+        "losses": 1,
+        "ties": 29,
+        "n": 1,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "gpt4_2f584639": 0,
+        "7405e8b1": 0,
+        "dfde3500": 0,
+        "f8c5f88b": 0,
+        "gpt4_483dd43c": 0,
+        "2ebe6c92": 0,
+        "gpt4_f420262d": 0,
+        "2ebe6c90": -1,
+        "4dfccbf7": 0,
+        "bc8a6e93_abs": 0,
+        "91b15a6e": 0,
+        "1d4da289": 0,
+        "gpt4_b5700ca0": 0,
+        "gpt4_21adecb5": 0,
+        "b46e15ee": 0,
+        "f9e8c073": 0,
+        "3a704032": 0,
+        "bf659f65": 0,
+        "6e984301": 0,
+        "505af2f5": 0,
+        "945e3d21": 0,
+        "d7c942c3": 0,
+        "6071bd76": 0,
+        "ce6d2d27": 0,
+        "07741c44": 0,
+        "18bc8abd": 0,
+        "ba61f0b9": 0,
+        "29f2956b_abs": 0,
+        "852ce960": 0,
+        "f4f1d8a4_abs": 0
+      }
+    },
+    "focus_update_temporal": {
+      "questions": 20,
+      "difference": -0.05,
+      "ci95": [
+        -0.15,
+        0.0
+      ],
+      "verdict": "傾向参考",
+      "sign_test": {
+        "wins": 0,
+        "losses": 1,
+        "ties": 19,
+        "n": 1,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "gpt4_2f584639": 0,
+        "dfde3500": 0,
+        "gpt4_483dd43c": 0,
+        "2ebe6c92": 0,
+        "gpt4_f420262d": 0,
+        "2ebe6c90": -1,
+        "4dfccbf7": 0,
+        "gpt4_b5700ca0": 0,
+        "gpt4_21adecb5": 0,
+        "b46e15ee": 0,
+        "f9e8c073": 0,
+        "6e984301": 0,
+        "945e3d21": 0,
+        "d7c942c3": 0,
+        "6071bd76": 0,
+        "ce6d2d27": 0,
+        "07741c44": 0,
+        "18bc8abd": 0,
+        "ba61f0b9": 0,
+        "852ce960": 0
+      }
+    },
+    "knowledge-update": {
+      "questions": 10,
+      "difference": 0.0,
+      "ci95": [
+        0.0,
+        0.0
+      ],
+      "verdict": "傾向参考",
+      "sign_test": {
+        "wins": 0,
+        "losses": 0,
+        "ties": 10,
+        "n": 0,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "dfde3500": 0,
+        "f9e8c073": 0,
+        "945e3d21": 0,
+        "d7c942c3": 0,
+        "6071bd76": 0,
+        "ce6d2d27": 0,
+        "07741c44": 0,
+        "18bc8abd": 0,
+        "ba61f0b9": 0,
+        "852ce960": 0
+      }
+    },
+    "temporal-reasoning": {
+      "questions": 10,
+      "difference": -0.1,
+      "ci95": [
+        -0.3,
+        0.0
+      ],
+      "verdict": "傾向参考",
+      "sign_test": {
+        "wins": 0,
+        "losses": 1,
+        "ties": 9,
+        "n": 1,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "gpt4_2f584639": 0,
+        "gpt4_483dd43c": 0,
+        "2ebe6c92": 0,
+        "gpt4_f420262d": 0,
+        "2ebe6c90": -1,
+        "4dfccbf7": 0,
+        "gpt4_b5700ca0": 0,
+        "gpt4_21adecb5": 0,
+        "b46e15ee": 0,
+        "6e984301": 0
+      }
+    },
+    "multi-session": {
+      "questions": 4,
+      "difference": 0.0,
+      "ci95": [
+        0.0,
+        0.0
+      ],
+      "verdict": "傾向参考",
+      "sign_test": {
+        "wins": 0,
+        "losses": 0,
+        "ties": 4,
+        "n": 0,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "7405e8b1": 0,
+        "91b15a6e": 0,
+        "3a704032": 0,
+        "bf659f65": 0
+      }
+    },
+    "single-session": {
+      "questions": 3,
+      "difference": 0.0,
+      "ci95": [
+        0.0,
+        0.0
+      ],
+      "verdict": "傾向参考",
+      "sign_test": {
+        "wins": 0,
+        "losses": 0,
+        "ties": 3,
+        "n": 0,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "f8c5f88b": 0,
+        "1d4da289": 0,
+        "505af2f5": 0
+      }
+    },
+    "abstention": {
+      "questions": 3,
+      "difference": 0.0,
+      "ci95": [
+        0.0,
+        0.0
+      ],
+      "verdict": "傾向参考",
+      "sign_test": {
+        "wins": 0,
+        "losses": 0,
+        "ties": 3,
+        "n": 0,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "bc8a6e93_abs": 0,
+        "29f2956b_abs": 0,
+        "f4f1d8a4_abs": 0
+      }
+    }
+  },
+  "T_minus_S": {
+    "overall": {
+      "questions": 30,
+      "difference": 0.03333333333333333,
+      "ci95": [
+        0.0,
+        0.1
+      ],
+      "verdict": "判定不能",
+      "sign_test": {
+        "wins": 1,
+        "losses": 0,
+        "ties": 29,
+        "n": 1,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "gpt4_2f584639": 0,
+        "7405e8b1": 0,
+        "dfde3500": 0,
+        "f8c5f88b": 0,
+        "gpt4_483dd43c": 0,
+        "2ebe6c92": 0,
+        "gpt4_f420262d": 0,
+        "2ebe6c90": 1,
+        "4dfccbf7": 0,
+        "bc8a6e93_abs": 0,
+        "91b15a6e": 0,
+        "1d4da289": 0,
+        "gpt4_b5700ca0": 0,
+        "gpt4_21adecb5": 0,
+        "b46e15ee": 0,
+        "f9e8c073": 0,
+        "3a704032": 0,
+        "bf659f65": 0,
+        "6e984301": 0,
+        "505af2f5": 0,
+        "945e3d21": 0,
+        "d7c942c3": 0,
+        "6071bd76": 0,
+        "ce6d2d27": 0,
+        "07741c44": 0,
+        "18bc8abd": 0,
+        "ba61f0b9": 0,
+        "29f2956b_abs": 0,
+        "852ce960": 0,
+        "f4f1d8a4_abs": 0
+      }
+    },
+    "focus_update_temporal": {
+      "questions": 20,
+      "difference": 0.05,
+      "ci95": [
+        0.0,
+        0.15
+      ],
+      "verdict": "傾向参考",
+      "sign_test": {
+        "wins": 1,
+        "losses": 0,
+        "ties": 19,
+        "n": 1,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "gpt4_2f584639": 0,
+        "dfde3500": 0,
+        "gpt4_483dd43c": 0,
+        "2ebe6c92": 0,
+        "gpt4_f420262d": 0,
+        "2ebe6c90": 1,
+        "4dfccbf7": 0,
+        "gpt4_b5700ca0": 0,
+        "gpt4_21adecb5": 0,
+        "b46e15ee": 0,
+        "f9e8c073": 0,
+        "6e984301": 0,
+        "945e3d21": 0,
+        "d7c942c3": 0,
+        "6071bd76": 0,
+        "ce6d2d27": 0,
+        "07741c44": 0,
+        "18bc8abd": 0,
+        "ba61f0b9": 0,
+        "852ce960": 0
+      }
+    },
+    "knowledge-update": {
+      "questions": 10,
+      "difference": 0.0,
+      "ci95": [
+        0.0,
+        0.0
+      ],
+      "verdict": "傾向参考",
+      "sign_test": {
+        "wins": 0,
+        "losses": 0,
+        "ties": 10,
+        "n": 0,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "dfde3500": 0,
+        "f9e8c073": 0,
+        "945e3d21": 0,
+        "d7c942c3": 0,
+        "6071bd76": 0,
+        "ce6d2d27": 0,
+        "07741c44": 0,
+        "18bc8abd": 0,
+        "ba61f0b9": 0,
+        "852ce960": 0
+      }
+    },
+    "temporal-reasoning": {
+      "questions": 10,
+      "difference": 0.1,
+      "ci95": [
+        0.0,
+        0.3
+      ],
+      "verdict": "傾向参考",
+      "sign_test": {
+        "wins": 1,
+        "losses": 0,
+        "ties": 9,
+        "n": 1,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "gpt4_2f584639": 0,
+        "gpt4_483dd43c": 0,
+        "2ebe6c92": 0,
+        "gpt4_f420262d": 0,
+        "2ebe6c90": 1,
+        "4dfccbf7": 0,
+        "gpt4_b5700ca0": 0,
+        "gpt4_21adecb5": 0,
+        "b46e15ee": 0,
+        "6e984301": 0
+      }
+    },
+    "multi-session": {
+      "questions": 4,
+      "difference": 0.0,
+      "ci95": [
+        0.0,
+        0.0
+      ],
+      "verdict": "傾向参考",
+      "sign_test": {
+        "wins": 0,
+        "losses": 0,
+        "ties": 4,
+        "n": 0,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "7405e8b1": 0,
+        "91b15a6e": 0,
+        "3a704032": 0,
+        "bf659f65": 0
+      }
+    },
+    "single-session": {
+      "questions": 3,
+      "difference": 0.0,
+      "ci95": [
+        0.0,
+        0.0
+      ],
+      "verdict": "傾向参考",
+      "sign_test": {
+        "wins": 0,
+        "losses": 0,
+        "ties": 3,
+        "n": 0,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "f8c5f88b": 0,
+        "1d4da289": 0,
+        "505af2f5": 0
+      }
+    },
+    "abstention": {
+      "questions": 3,
+      "difference": 0.0,
+      "ci95": [
+        0.0,
+        0.0
+      ],
+      "verdict": "傾向参考",
+      "sign_test": {
+        "wins": 0,
+        "losses": 0,
+        "ties": 3,
+        "n": 0,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "bc8a6e93_abs": 0,
+        "29f2956b_abs": 0,
+        "f4f1d8a4_abs": 0
+      }
+    }
+  },
+  "V_minus_T": {
+    "overall": {
+      "questions": 30,
+      "difference": 0.03333333333333333,
+      "ci95": [
+        0.0,
+        0.1
+      ],
+      "verdict": "判定不能",
+      "sign_test": {
+        "wins": 1,
+        "losses": 0,
+        "ties": 29,
+        "n": 1,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "gpt4_2f584639": 0,
+        "7405e8b1": 0,
+        "dfde3500": 0,
+        "f8c5f88b": 0,
+        "gpt4_483dd43c": 0,
+        "2ebe6c92": 0,
+        "gpt4_f420262d": 0,
+        "2ebe6c90": 0,
+        "4dfccbf7": 0,
+        "bc8a6e93_abs": 0,
+        "91b15a6e": 0,
+        "1d4da289": 0,
+        "gpt4_b5700ca0": 0,
+        "gpt4_21adecb5": 0,
+        "b46e15ee": 0,
+        "f9e8c073": 1,
+        "3a704032": 0,
+        "bf659f65": 0,
+        "6e984301": 0,
+        "505af2f5": 0,
+        "945e3d21": 0,
+        "d7c942c3": 0,
+        "6071bd76": 0,
+        "ce6d2d27": 0,
+        "07741c44": 0,
+        "18bc8abd": 0,
+        "ba61f0b9": 0,
+        "29f2956b_abs": 0,
+        "852ce960": 0,
+        "f4f1d8a4_abs": 0
+      }
+    },
+    "focus_update_temporal": {
+      "questions": 20,
+      "difference": 0.05,
+      "ci95": [
+        0.0,
+        0.15
+      ],
+      "verdict": "傾向参考",
+      "sign_test": {
+        "wins": 1,
+        "losses": 0,
+        "ties": 19,
+        "n": 1,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "gpt4_2f584639": 0,
+        "dfde3500": 0,
+        "gpt4_483dd43c": 0,
+        "2ebe6c92": 0,
+        "gpt4_f420262d": 0,
+        "2ebe6c90": 0,
+        "4dfccbf7": 0,
+        "gpt4_b5700ca0": 0,
+        "gpt4_21adecb5": 0,
+        "b46e15ee": 0,
+        "f9e8c073": 1,
+        "6e984301": 0,
+        "945e3d21": 0,
+        "d7c942c3": 0,
+        "6071bd76": 0,
+        "ce6d2d27": 0,
+        "07741c44": 0,
+        "18bc8abd": 0,
+        "ba61f0b9": 0,
+        "852ce960": 0
+      }
+    },
+    "knowledge-update": {
+      "questions": 10,
+      "difference": 0.1,
+      "ci95": [
+        0.0,
+        0.3
+      ],
+      "verdict": "傾向参考",
+      "sign_test": {
+        "wins": 1,
+        "losses": 0,
+        "ties": 9,
+        "n": 1,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "dfde3500": 0,
+        "f9e8c073": 1,
+        "945e3d21": 0,
+        "d7c942c3": 0,
+        "6071bd76": 0,
+        "ce6d2d27": 0,
+        "07741c44": 0,
+        "18bc8abd": 0,
+        "ba61f0b9": 0,
+        "852ce960": 0
+      }
+    },
+    "temporal-reasoning": {
+      "questions": 10,
+      "difference": 0.0,
+      "ci95": [
+        0.0,
+        0.0
+      ],
+      "verdict": "傾向参考",
+      "sign_test": {
+        "wins": 0,
+        "losses": 0,
+        "ties": 10,
+        "n": 0,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "gpt4_2f584639": 0,
+        "gpt4_483dd43c": 0,
+        "2ebe6c92": 0,
+        "gpt4_f420262d": 0,
+        "2ebe6c90": 0,
+        "4dfccbf7": 0,
+        "gpt4_b5700ca0": 0,
+        "gpt4_21adecb5": 0,
+        "b46e15ee": 0,
+        "6e984301": 0
+      }
+    },
+    "multi-session": {
+      "questions": 4,
+      "difference": 0.0,
+      "ci95": [
+        0.0,
+        0.0
+      ],
+      "verdict": "傾向参考",
+      "sign_test": {
+        "wins": 0,
+        "losses": 0,
+        "ties": 4,
+        "n": 0,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "7405e8b1": 0,
+        "91b15a6e": 0,
+        "3a704032": 0,
+        "bf659f65": 0
+      }
+    },
+    "single-session": {
+      "questions": 3,
+      "difference": 0.0,
+      "ci95": [
+        0.0,
+        0.0
+      ],
+      "verdict": "傾向参考",
+      "sign_test": {
+        "wins": 0,
+        "losses": 0,
+        "ties": 3,
+        "n": 0,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "f8c5f88b": 0,
+        "1d4da289": 0,
+        "505af2f5": 0
+      }
+    },
+    "abstention": {
+      "questions": 3,
+      "difference": 0.0,
+      "ci95": [
+        0.0,
+        0.0
+      ],
+      "verdict": "傾向参考",
+      "sign_test": {
+        "wins": 0,
+        "losses": 0,
+        "ties": 3,
+        "n": 0,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "bc8a6e93_abs": 0,
+        "29f2956b_abs": 0,
+        "f4f1d8a4_abs": 0
+      }
+    }
+  },
+  "F1_V_minus_C_reference": {
+    "overall": {
+      "questions": 30,
+      "difference": 0.013157894736842106,
+      "ci95": [
+        -0.0005263157894736831,
+        0.04000000000000001
+      ],
+      "verdict": "傾向参考",
+      "sign_test": {
+        "wins": 1,
+        "losses": 1,
+        "ties": 28,
+        "n": 2,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "gpt4_2f584639": 0.0,
+        "7405e8b1": -0.005263157894736831,
+        "dfde3500": 0.0,
+        "f8c5f88b": 0.0,
+        "gpt4_483dd43c": 0.0,
+        "2ebe6c92": 0.4,
+        "gpt4_f420262d": 0.0,
+        "2ebe6c90": 0.0,
+        "4dfccbf7": 0.0,
+        "bc8a6e93_abs": 0.0,
+        "91b15a6e": 0.0,
+        "1d4da289": 0.0,
+        "gpt4_b5700ca0": 0.0,
+        "gpt4_21adecb5": 0.0,
+        "b46e15ee": 0.0,
+        "f9e8c073": 0.0,
+        "3a704032": 0.0,
+        "bf659f65": 0.0,
+        "6e984301": 0.0,
+        "505af2f5": 0.0,
+        "945e3d21": 0.0,
+        "d7c942c3": 0.0,
+        "6071bd76": 0.0,
+        "ce6d2d27": 0.0,
+        "07741c44": 0.0,
+        "18bc8abd": 0.0,
+        "ba61f0b9": 0.0,
+        "29f2956b_abs": 0.0,
+        "852ce960": 0.0,
+        "f4f1d8a4_abs": 0.0
+      }
+    },
+    "focus_update_temporal": {
+      "questions": 20,
+      "difference": 0.02,
+      "ci95": [
+        0.0,
+        0.06000000000000001
+      ],
+      "verdict": "傾向参考",
+      "sign_test": {
+        "wins": 1,
+        "losses": 0,
+        "ties": 19,
+        "n": 1,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "gpt4_2f584639": 0.0,
+        "dfde3500": 0.0,
+        "gpt4_483dd43c": 0.0,
+        "2ebe6c92": 0.4,
+        "gpt4_f420262d": 0.0,
+        "2ebe6c90": 0.0,
+        "4dfccbf7": 0.0,
+        "gpt4_b5700ca0": 0.0,
+        "gpt4_21adecb5": 0.0,
+        "b46e15ee": 0.0,
+        "f9e8c073": 0.0,
+        "6e984301": 0.0,
+        "945e3d21": 0.0,
+        "d7c942c3": 0.0,
+        "6071bd76": 0.0,
+        "ce6d2d27": 0.0,
+        "07741c44": 0.0,
+        "18bc8abd": 0.0,
+        "ba61f0b9": 0.0,
+        "852ce960": 0.0
+      }
+    },
+    "knowledge-update": {
+      "questions": 10,
+      "difference": 0.0,
+      "ci95": [
+        0.0,
+        0.0
+      ],
+      "verdict": "傾向参考",
+      "sign_test": {
+        "wins": 0,
+        "losses": 0,
+        "ties": 10,
+        "n": 0,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "dfde3500": 0.0,
+        "f9e8c073": 0.0,
+        "945e3d21": 0.0,
+        "d7c942c3": 0.0,
+        "6071bd76": 0.0,
+        "ce6d2d27": 0.0,
+        "07741c44": 0.0,
+        "18bc8abd": 0.0,
+        "ba61f0b9": 0.0,
+        "852ce960": 0.0
+      }
+    },
+    "temporal-reasoning": {
+      "questions": 10,
+      "difference": 0.04,
+      "ci95": [
+        0.0,
+        0.12000000000000002
+      ],
+      "verdict": "傾向参考",
+      "sign_test": {
+        "wins": 1,
+        "losses": 0,
+        "ties": 9,
+        "n": 1,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "gpt4_2f584639": 0.0,
+        "gpt4_483dd43c": 0.0,
+        "2ebe6c92": 0.4,
+        "gpt4_f420262d": 0.0,
+        "2ebe6c90": 0.0,
+        "4dfccbf7": 0.0,
+        "gpt4_b5700ca0": 0.0,
+        "gpt4_21adecb5": 0.0,
+        "b46e15ee": 0.0,
+        "6e984301": 0.0
+      }
+    },
+    "multi-session": {
+      "questions": 4,
+      "difference": -0.0013157894736842077,
+      "ci95": [
+        -0.003947368421052623,
+        0.0
+      ],
+      "verdict": "傾向参考",
+      "sign_test": {
+        "wins": 0,
+        "losses": 1,
+        "ties": 3,
+        "n": 1,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "7405e8b1": -0.005263157894736831,
+        "91b15a6e": 0.0,
+        "3a704032": 0.0,
+        "bf659f65": 0.0
+      }
+    },
+    "single-session": {
+      "questions": 3,
+      "difference": 0.0,
+      "ci95": [
+        0.0,
+        0.0
+      ],
+      "verdict": "傾向参考",
+      "sign_test": {
+        "wins": 0,
+        "losses": 0,
+        "ties": 3,
+        "n": 0,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "f8c5f88b": 0.0,
+        "1d4da289": 0.0,
+        "505af2f5": 0.0
+      }
+    },
+    "abstention": {
+      "questions": 3,
+      "difference": 0.0,
+      "ci95": [
+        0.0,
+        0.0
+      ],
+      "verdict": "傾向参考",
+      "sign_test": {
+        "wins": 0,
+        "losses": 0,
+        "ties": 3,
+        "n": 0,
+        "p_two_sided": 1.0
+      },
+      "by_question": {
+        "bc8a6e93_abs": 0.0,
+        "29f2956b_abs": 0.0,
+        "f4f1d8a4_abs": 0.0
+      }
+    }
+  },
+  "scope": "fixed30 new English LongMemEval-S sample; Qwen self judge; contamination unknown",
+  "time": "2026-10-22T19:51:01.110865+09:00",
+  "update_stats": {
+    "calls": 1159,
+    "parse_failures": 0,
+    "overflow": 0,
+    "links": 32
+  },
+  "embedding": {
+    "gpt4_2f584639": {
+      "document_seconds": 11.435637457994744,
+      "document_units": 759,
+      "query_seconds": 0.007518375059589744
+    },
+    "7405e8b1": {
+      "document_seconds": 11.190396042075008,
+      "document_units": 765,
+      "query_seconds": 0.007744292030110955
+    },
+    "dfde3500": {
+      "document_seconds": 10.537979625165462,
+      "document_units": 810,
+      "query_seconds": 0.007556042168289423
+    },
+    "f8c5f88b": {
+      "document_seconds": 12.30787262506783,
+      "document_units": 781,
+      "query_seconds": 0.007532916963100433
+    },
+    "gpt4_483dd43c": {
+      "document_seconds": 11.505120459012687,
+      "document_units": 862,
+      "query_seconds": 0.00745787494815886
+    },
+    "2ebe6c92": {
+      "document_seconds": 11.33097237511538,
+      "document_units": 790,
+      "query_seconds": 0.007445417111739516
+    },
+    "gpt4_f420262d": {
+      "document_seconds": 10.920260874787346,
+      "document_units": 750,
+      "query_seconds": 0.0075307919178158045
+    },
+    "2ebe6c90": {
+      "document_seconds": 11.185911833075806,
+      "document_units": 776,
+      "query_seconds": 0.007617374882102013
+    },
+    "4dfccbf7": {
+      "document_seconds": 11.226174874929711,
+      "document_units": 835,
+      "query_seconds": 0.0076905000023543835
+    },
+    "bc8a6e93_abs": {
+      "document_seconds": 11.394687458872795,
+      "document_units": 814,
+      "query_seconds": 0.007570834131911397
+    },
+    "91b15a6e": {
+      "document_seconds": 10.992945666890591,
+      "document_units": 776,
+      "query_seconds": 0.007544999942183495
+    },
+    "1d4da289": {
+      "document_seconds": 11.757420750102028,
+      "document_units": 783,
+      "query_seconds": 0.007881375029683113
+    },
+    "gpt4_b5700ca0": {
+      "document_seconds": 11.273508334066719,
+      "document_units": 811,
+      "query_seconds": 0.0064541250467300415
+    },
+    "gpt4_21adecb5": {
+      "document_seconds": 11.97911600000225,
+      "document_units": 865,
+      "query_seconds": 0.0073486662004143
+    },
+    "b46e15ee": {
+      "document_seconds": 10.908627500059083,
+      "document_units": 747,
+      "query_seconds": 0.007588540902361274
+    },
+    "f9e8c073": {
+      "document_seconds": 11.128771416842937,
+      "document_units": 854,
+      "query_seconds": 0.007420375011861324
+    },
+    "3a704032": {
+      "document_seconds": 10.30683062504977,
+      "document_units": 827,
+      "query_seconds": 0.006539833033457398
+    },
+    "bf659f65": {
+      "document_seconds": 10.71326541597955,
+      "document_units": 834,
+      "query_seconds": 0.007388459052890539
+    },
+    "6e984301": {
+      "document_seconds": 10.840425250120461,
+      "document_units": 825,
+      "query_seconds": 0.0074404580518603325
+    },
+    "505af2f5": {
+      "document_seconds": 12.098850750131533,
+      "document_units": 904,
+      "query_seconds": 0.007420875132083893
+    },
+    "945e3d21": {
+      "document_seconds": 11.625470999861136,
+      "document_units": 880,
+      "query_seconds": 0.007445416878908873
+    },
+    "d7c942c3": {
+      "document_seconds": 11.635790125001222,
+      "document_units": 869,
+      "query_seconds": 0.006762790959328413
+    },
+    "6071bd76": {
+      "document_seconds": 10.69454083405435,
+      "document_units": 808,
+      "query_seconds": 0.007724791998043656
+    },
+    "ce6d2d27": {
+      "document_seconds": 12.648901582928374,
+      "document_units": 876,
+      "query_seconds": 0.007373583037406206
+    },
+    "07741c44": {
+      "document_seconds": 11.678763084113598,
+      "document_units": 857,
+      "query_seconds": 0.007389165926724672
+    },
+    "18bc8abd": {
+      "document_seconds": 11.379915707977489,
+      "document_units": 746,
+      "query_seconds": 0.007502791937440634
+    },
+    "ba61f0b9": {
+      "document_seconds": 12.263323500053957,
+      "document_units": 748,
+      "query_seconds": 0.007330042077228427
+    },
+    "29f2956b_abs": {
+      "document_seconds": 12.34428087505512,
+      "document_units": 804,
+      "query_seconds": 0.007334291003644466
+    },
+    "852ce960": {
+      "document_seconds": 9.433677083114162,
+      "document_units": 655,
+      "query_seconds": 0.007529707858338952
+    },
+    "f4f1d8a4_abs": {
+      "document_seconds": 11.353555750101805,
+      "document_units": 822,
+      "query_seconds": 0.007360040908679366
+    }
+  },
+  "search_timings": {
+    "gpt4_2f584639": {
+      "search_seconds": 0.0009785841684788465,
+      "rerank_seconds": 12.372784957988188
+    },
+    "7405e8b1": {
+      "search_seconds": 0.00044950004667043686,
+      "rerank_seconds": 13.206520292209461
+    },
+    "dfde3500": {
+      "search_seconds": 0.0007055001333355904,
+      "rerank_seconds": 12.728864917065948
+    },
+    "f8c5f88b": {
+      "search_seconds": 0.0005863748956471682,
+      "rerank_seconds": 16.515282875159755
+    },
+    "gpt4_483dd43c": {
+      "search_seconds": 0.0006069589871913195,
+      "rerank_seconds": 18.212417959002778
+    },
+    "2ebe6c92": {
+      "search_seconds": 0.0004331669770181179,
+      "rerank_seconds": 16.04244033410214
+    },
+    "gpt4_f420262d": {
+      "search_seconds": 0.00040662498213350773,
+      "rerank_seconds": 15.994563708081841
+    },
+    "2ebe6c90": {
+      "search_seconds": 0.00040187500417232513,
+      "rerank_seconds": 17.2353662091773
+    },
+    "4dfccbf7": {
+      "search_seconds": 0.00048574991524219513,
+      "rerank_seconds": 16.87249170895666
+    },
+    "bc8a6e93_abs": {
+      "search_seconds": 0.0004539170768111944,
+      "rerank_seconds": 17.79258158407174
+    },
+    "91b15a6e": {
+      "search_seconds": 0.0004152499604970217,
+      "rerank_seconds": 18.099198624957353
+    },
+    "1d4da289": {
+      "search_seconds": 0.00040945899672806263,
+      "rerank_seconds": 9.68660550005734
+    },
+    "gpt4_b5700ca0": {
+      "search_seconds": 0.00044283317402005196,
+      "rerank_seconds": 12.754342332948
+    },
+    "gpt4_21adecb5": {
+      "search_seconds": 0.000576874939724803,
+      "rerank_seconds": 16.517415083013475
+    },
+    "b46e15ee": {
+      "search_seconds": 0.0003967077936977148,
+      "rerank_seconds": 16.076137540861964
+    },
+    "f9e8c073": {
+      "search_seconds": 0.0004656251985579729,
+      "rerank_seconds": 19.72706720791757
+    },
+    "3a704032": {
+      "search_seconds": 0.00042512500658631325,
+      "rerank_seconds": 17.369686000049114
+    },
+    "bf659f65": {
+      "search_seconds": 0.00042858393862843513,
+      "rerank_seconds": 18.059044667053968
+    },
+    "6e984301": {
+      "search_seconds": 0.00042045791633427143,
+      "rerank_seconds": 21.34136087493971
+    },
+    "505af2f5": {
+      "search_seconds": 0.0005728341639041901,
+      "rerank_seconds": 16.233663167105988
+    },
+    "945e3d21": {
+      "search_seconds": 0.0005881248507648706,
+      "rerank_seconds": 16.44403833313845
+    },
+    "d7c942c3": {
+      "search_seconds": 0.0004417921882122755,
+      "rerank_seconds": 10.785708624869585
+    },
+    "6071bd76": {
+      "search_seconds": 0.00041066715493798256,
+      "rerank_seconds": 13.193016374949366
+    },
+    "ce6d2d27": {
+      "search_seconds": 0.0004715840332210064,
+      "rerank_seconds": 13.741850582882762
+    },
+    "07741c44": {
+      "search_seconds": 0.0004279168788343668,
+      "rerank_seconds": 13.80231195804663
+    },
+    "18bc8abd": {
+      "search_seconds": 0.00043158303014934063,
+      "rerank_seconds": 18.924132250016555
+    },
+    "ba61f0b9": {
+      "search_seconds": 0.0004193331114947796,
+      "rerank_seconds": 27.1322935000062
+    },
+    "29f2956b_abs": {
+      "search_seconds": 0.00044875009916722775,
+      "rerank_seconds": 12.95063920901157
+    },
+    "852ce960": {
+      "search_seconds": 0.0003739579115062952,
+      "rerank_seconds": 17.933034665882587
+    },
+    "f4f1d8a4_abs": {
+      "search_seconds": 0.00041545904241502285,
+      "rerank_seconds": 10.939829708077013
+    }
+  },
+  "session_wall_seconds": 29027.749647291843,
+  "HTTP_records": 2871,
+  "plan_sha256": "c52a6f73cd09de84ce73d65e329653c4e7b75c3e7de425adc6d4f1bf1fa7d963"
+}

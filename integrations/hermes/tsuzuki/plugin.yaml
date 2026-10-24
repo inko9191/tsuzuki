@@ -1,0 +1,19 @@
+name: tsuzuki
+version: 0.1.0
+description: "Local long-term memory through the tsuzuki sidecar (EmbeddingGemma, HTTP on 127.0.0.1)."
+kind: exclusive
+hooks:
+  - on_session_end
+  - on_session_switch
+external_dependencies:
+  - name: embeddinggemma
+    install: "ollama pull embeddinggemma"
+    check: "ollama show embeddinggemma"
+
+# Plugin settings (flat keys only; read by tsuzuki/__init__.py, ignored by Hermes' manifest parser).
+# server_js: the sidecar's built entry script. Absolute, or relative to this directory.
+#   Overridden by env TSUZUKI_SERVER_JS or memory.tsuzuki.server_js in the profile's config.yaml.
+server_js: ""
+# node: optional node executable. Default: Hermes' bundled ~/.hermes/node/bin/node, then node on PATH.
+#   Overridden by env TSUZUKI_NODE or memory.tsuzuki.node in config.yaml.
+node: ""

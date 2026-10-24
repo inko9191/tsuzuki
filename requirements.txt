@@ -1,0 +1,7 @@
+# Phase 1 reference implementation + validation
+torch>=2.6
+safetensors>=0.4
+transformers==5.19.0          # tokenizer + (validation only) official EmbeddingGemma2 classes
+sentence-transformers[image]==6.1.0   # validation target; [image] pulls Pillow, required by EmbeddingGemma2Processor
+huggingface_hub>=0.30
+numpy

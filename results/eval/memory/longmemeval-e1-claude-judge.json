@@ -1,0 +1,50 @@
+{
+ "judge": "Claude Opus 5.5 (this session, blinded A/B sheet, graded before opening the Qwen E1 labels)",
+ "accuracy": {
+  "E2B-P": 0.65,
+  "E2B-AT": 0.475,
+  "Qwen-AT": 0.525
+ },
+ "qwen_accuracy": {
+  "E2B-P": 0.525,
+  "E2B-AT": 0.375
+ },
+ "primary_rule_on_claude_labels": {
+  "E2B_P_minus_Qwen_AT": {
+   "questions": 40,
+   "difference": 0.125,
+   "ci95": [
+    -0.025,
+    0.275
+   ],
+   "verdict": "同等以上（非劣性）",
+   "sign_test": {
+    "wins": 8,
+    "losses": 3,
+    "ties": 29,
+    "n": 11,
+    "p_two_sided": 0.2265625
+   }
+  },
+  "E2B_P_minus_E2B_AT": {
+   "questions": 40,
+   "difference": 0.175,
+   "ci95": [
+    0.0,
+    0.35
+   ],
+   "verdict": "同等以上（非劣性）",
+   "sign_test": {
+    "wins": 10,
+    "losses": 3,
+    "ties": 27,
+    "n": 13,
+    "p_two_sided": 0.09228515625
+   }
+  }
+ },
+ "agreement": {
+  "percent": 0.8875,
+  "cohen_kappa": 0.7777777777777777
+ }
+}

@@ -1,0 +1,19 @@
+# Exact package versions of build/eval/venv-data as used for the results in this repository (2026-10-12).
+# Python 3.13.14, macOS 27.0.1 arm64 (Apple M5 Max). Install: python -m venv build/eval/venv-data && build/eval/venv-data/bin/pip install -r requirements-eval-data-lock.txt
+anyio==4.15.1
+certifi==2026.7.22
+click==8.5.0
+filelock==4.1.1
+fsspec==2026.9.0
+h11==0.16.0
+hf-xet==1.7.0
+httpcore==1.0.9
+httpx==0.28.1
+huggingface_hub==1.33.0
+idna==3.20
+packaging==26.3
+pip==26.2.1
+pyarrow==21.0.0
+PyYAML==6.0.3
+tqdm==4.70.1
+typing_extensions==4.16.0

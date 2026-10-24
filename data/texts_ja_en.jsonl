@@ -1,0 +1,60 @@
+{"id": 0, "lang": "en", "text": "Which planet is known as the Red Planet?"}
+{"id": 1, "lang": "en", "text": "Mars, known for its reddish appearance, is often referred to as the Red Planet."}
+{"id": 2, "lang": "en", "text": "Venus is often called Earth's twin because of its similar size and proximity."}
+{"id": 3, "lang": "en", "text": "How do I reset my router to factory settings?"}
+{"id": 4, "lang": "en", "text": "The mitochondria is the powerhouse of the cell, producing ATP through oxidative phosphorylation."}
+{"id": 5, "lang": "en", "text": "Quarterly revenue rose 12% year over year to $4.3 billion, beating analyst estimates."}
+{"id": 6, "lang": "en", "text": "def fib(n):\n    return n if n < 2 else fib(n-1) + fib(n-2)"}
+{"id": 7, "lang": "en", "text": "SELECT name, COUNT(*) FROM orders GROUP BY name HAVING COUNT(*) > 10;"}
+{"id": 8, "lang": "en", "text": "I absolutely loved this movie — the soundtrack alone is worth the ticket! 🎬🍿"}
+{"id": 9, "lang": "en", "text": "Terrible customer service. Waited 45 minutes and nobody picked up."}
+{"id": 10, "lang": "en", "text": "The Treaty of Westphalia (1648) ended the Thirty Years' War and reshaped European sovereignty."}
+{"id": 11, "lang": "en", "text": "Photosynthesis converts light energy into chemical energy stored in glucose."}
+{"id": 12, "lang": "en", "text": "Best practices for securing a Kubernetes cluster include RBAC, network policies, and image scanning."}
+{"id": 13, "lang": "en", "text": "A quick brown fox jumps over the lazy dog."}
+{"id": 14, "lang": "en", "text": "What is the difference between a list and a tuple in Python?"}
+{"id": 15, "lang": "en", "text": "E = mc^2 relates mass and energy; c is the speed of light in vacuum (≈ 299,792,458 m/s)."}
+{"id": 16, "lang": "en", "text": "Preheat the oven to 220°C, toss the potatoes with olive oil and salt, and roast for 35 minutes."}
+{"id": 17, "lang": "en", "text": "The defendant's motion to dismiss was denied because the complaint stated a plausible claim."}
+{"id": 18, "lang": "en", "text": "Symptoms of dehydration include thirst, dark urine, fatigue, and dizziness."}
+{"id": 19, "lang": "en", "text": "Transformers use self-attention to model dependencies between all tokens in a sequence."}
+{"id": 20, "lang": "en", "text": "ok"}
+{"id": 21, "lang": "en", "text": "URGENT!!! Your account has been suspended. Click here to verify your password."}
+{"id": 22, "lang": "en", "text": "The 2026 Winter Olympics were held in Milan and Cortina d'Ampezzo, Italy."}
+{"id": 23, "lang": "en", "text": "Matryoshka representation learning lets a single embedding be truncated to smaller sizes."}
+{"id": 24, "lang": "en", "text": "She sells seashells by the seashore."}
+{"id": 25, "lang": "en", "text": "Error: ECONNREFUSED 127.0.0.1:5432 — is the PostgreSQL server running?"}
+{"id": 26, "lang": "en", "text": "A haiku: an old silent pond / a frog jumps into the pond / splash! silence again"}
+{"id": 27, "lang": "en", "text": "Return policy: items may be returned within 30 days with the original receipt."}
+{"id": 28, "lang": "en", "text": "The quick sort algorithm has an average time complexity of O(n log n)."}
+{"id": 29, "lang": "en", "text": "Climate change is driving more frequent and intense heatwaves across Europe."}
+{"id": 30, "lang": "ja", "text": "赤い惑星として知られているのはどの惑星ですか？"}
+{"id": 31, "lang": "ja", "text": "火星はその赤みがかった外観から「赤い惑星」と呼ばれることが多い。"}
+{"id": 32, "lang": "ja", "text": "東京タワーの高さは333メートルです。"}
+{"id": 33, "lang": "ja", "text": "ルーターを工場出荷時の設定に戻すにはどうすればいいですか？"}
+{"id": 34, "lang": "ja", "text": "ミトコンドリアは細胞のエネルギー工場であり、酸化的リン酸化によってATPを産生する。"}
+{"id": 35, "lang": "ja", "text": "第3四半期の売上高は前年同期比12%増の43億ドルとなり、市場予想を上回った。"}
+{"id": 36, "lang": "ja", "text": "この映画は本当に最高でした！音楽だけでも観る価値があります🎬"}
+{"id": 37, "lang": "ja", "text": "カスタマーサポートの対応が最悪。45分待っても誰も電話に出なかった。"}
+{"id": 38, "lang": "ja", "text": "関ヶ原の戦いは1600年に起こり、徳川家康が勝利した。"}
+{"id": 39, "lang": "ja", "text": "光合成は光エネルギーを化学エネルギーに変換し、グルコースとして蓄える。"}
+{"id": 40, "lang": "ja", "text": "Pythonのリストとタプルの違いは何ですか？"}
+{"id": 41, "lang": "ja", "text": "オーブンを220℃に予熱し、じゃがいもにオリーブオイルと塩をまぶして35分焼きます。"}
+{"id": 42, "lang": "ja", "text": "脱水症状には、のどの渇き、濃い色の尿、倦怠感、めまいなどがある。"}
+{"id": 43, "lang": "ja", "text": "古池や蛙飛び込む水の音"}
+{"id": 44, "lang": "ja", "text": "はい"}
+{"id": 45, "lang": "ja", "text": "【緊急】お客様のアカウントは停止されました。こちらをクリックしてパスワードを確認してください。"}
+{"id": 46, "lang": "ja", "text": "返品は購入日から30日以内、レシート原本がある場合に限り受け付けます。"}
+{"id": 47, "lang": "ja", "text": "気候変動により、ヨーロッパ全域で熱波がより頻繁かつ激しくなっている。"}
+{"id": 48, "lang": "ja", "text": "Kubernetesクラスタを安全に運用するには、RBAC、ネットワークポリシー、イメージスキャンが重要です。"}
+{"id": 49, "lang": "ja", "text": "吾輩は猫である。名前はまだ無い。どこで生れたかとんと見当がつかぬ。"}
+{"id": 50, "lang": "ja", "text": "ｶﾀｶﾅの半角文字と全角ＡＢＣ、それに①②③のような記号も混ぜてみる。"}
+{"id": 51, "lang": "ja", "text": "明日の天気は晴れのち曇り、降水確率は20％です。"}
+{"id": 52, "lang": "ja", "text": "被告の却下申立ては、訴状がもっともらしい請求を述べているとして棄却された。"}
+{"id": 53, "lang": "ja", "text": "機械学習モデルの推論を高速化するには、量子化やカーネル融合が有効だ。"}
+{"id": 54, "lang": "mix", "text": "Apple SiliconのMetal Performance Shadersを使ってGEMMを高速化する方法"}
+{"id": 55, "lang": "mix", "text": "今日のmeetingはpostponeになりました。Slackで連絡します。"}
+{"id": 56, "lang": "mix", "text": "エラー: ECONNREFUSED 127.0.0.1:5432 — PostgreSQLサーバーは起動していますか？"}
+{"id": 57, "lang": "mix", "text": "「Attention Is All You Need」はTransformerを提案した2017年の論文である。"}
+{"id": 58, "lang": "mix", "text": "東京 → New York の直行便は約13時間かかります ✈️"}
+{"id": 59, "lang": "mix", "text": "def 合計(リスト):\n    return sum(リスト)  # 日本語の識別子"}

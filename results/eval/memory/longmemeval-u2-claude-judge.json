@@ -1,0 +1,161 @@
+{
+ "judge": "Claude Opus 5.5 (this session, blinded sheet; the experiment designer)",
+ "questions": 40,
+ "accuracy": {
+  "C512": 0.475,
+  "P": 0.725,
+  "V1024R": 0.725,
+  "T2048": 0.7,
+  "A": 0.35
+ },
+ "qwen_accuracy": {
+  "C512": 0.475,
+  "P": 0.675,
+  "V1024R": 0.65,
+  "T2048": 0.65,
+  "A": 0.325
+ },
+ "primary_rule_on_claude_labels": {
+  "P_minus_C512": {
+   "overall": {
+    "questions": 40,
+    "difference": 0.25,
+    "ci95": [
+     0.1,
+     0.4
+    ],
+    "verdict": "改善",
+    "sign_test": {
+     "wins": 11,
+     "losses": 1,
+     "ties": 28,
+     "n": 12,
+     "p_two_sided": 0.00634765625
+    }
+   }
+  },
+  "P_minus_A": {
+   "overall": {
+    "questions": 40,
+    "difference": 0.375,
+    "ci95": [
+     0.225,
+     0.525
+    ],
+    "verdict": "上回る",
+    "sign_test": {
+     "wins": 15,
+     "losses": 0,
+     "ties": 25,
+     "n": 15,
+     "p_two_sided": 6.103515625e-05
+    }
+   }
+  },
+  "V1024R_minus_C512": {
+   "overall": {
+    "questions": 40,
+    "difference": 0.25,
+    "ci95": [
+     0.125,
+     0.4
+    ],
+    "verdict": "傾向参考",
+    "sign_test": {
+     "wins": 10,
+     "losses": 0,
+     "ties": 30,
+     "n": 10,
+     "p_two_sided": 0.001953125
+    }
+   }
+  },
+  "P_minus_T2048": {
+   "overall": {
+    "questions": 40,
+    "difference": 0.025,
+    "ci95": [
+     0.0,
+     0.075
+    ],
+    "verdict": "傾向参考",
+    "sign_test": {
+     "wins": 1,
+     "losses": 0,
+     "ties": 39,
+     "n": 1,
+     "p_two_sided": 1.0
+    }
+   }
+  }
+ },
+ "agreement": {
+  "percent": 0.96,
+  "cohen_kappa": 0.9182923092636094,
+  "by_arm": {
+   "C512": 1.0,
+   "P": 0.95,
+   "V1024R": 0.925,
+   "T2048": 0.95,
+   "A": 0.975
+  }
+ },
+ "disagreements": [
+  {
+   "question_id": "22d2cb42",
+   "arm": "P",
+   "stratum": "knowledge-update",
+   "claude": 1,
+   "qwen": 0
+  },
+  {
+   "question_id": "afdc33df",
+   "arm": "P",
+   "stratum": "single-session",
+   "claude": 1,
+   "qwen": 0
+  },
+  {
+   "question_id": "22d2cb42",
+   "arm": "V1024R",
+   "stratum": "knowledge-update",
+   "claude": 1,
+   "qwen": 0
+  },
+  {
+   "question_id": "afdc33df",
+   "arm": "V1024R",
+   "stratum": "single-session",
+   "claude": 1,
+   "qwen": 0
+  },
+  {
+   "question_id": "gpt4_59c863d7",
+   "arm": "V1024R",
+   "stratum": "multi-session",
+   "claude": 1,
+   "qwen": 0
+  },
+  {
+   "question_id": "22d2cb42",
+   "arm": "T2048",
+   "stratum": "knowledge-update",
+   "claude": 1,
+   "qwen": 0
+  },
+  {
+   "question_id": "afdc33df",
+   "arm": "T2048",
+   "stratum": "single-session",
+   "claude": 1,
+   "qwen": 0
+  },
+  {
+   "question_id": "22d2cb42",
+   "arm": "A",
+   "stratum": "knowledge-update",
+   "claude": 1,
+   "qwen": 0
+  }
+ ]
+}
