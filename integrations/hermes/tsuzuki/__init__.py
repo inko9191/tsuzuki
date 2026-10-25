@@ -476,7 +476,7 @@ class TsuzukiProvider(MemoryProvider):
         # Writes the sidecar did not receive (down); resent in order once it answers again. Bounded.
         self._retry: "deque[tuple[str, dict[str, Any]]]" = deque()
         self._retry_dropped = 0
-        self._last_restart_failed = 0.0
+        self._last_restart_failed = float("-inf")  # not 0.0: time.monotonic() is small right after boot
 
     # -- identity / availability ----------------------------------------------------------
 

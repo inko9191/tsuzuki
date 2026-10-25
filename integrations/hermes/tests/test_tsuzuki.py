@@ -713,6 +713,16 @@ class SyncTurnTests(SidecarTestCase):
         texts = [m["text"] for p in posts if p["path"] == "/v1/memory/messages" for m in p["payload"]["messages"]]
         self.assertEqual(texts, ["My bike is a red Bianchi.", "Noted.", "It needs new brakes.", "OK."])
 
+    def test_the_first_restart_is_not_held_back_on_a_machine_that_just_booted(self) -> None:
+        """R10: time.monotonic() counts from boot, so it can be under RESTART_INTERVAL_S; the first restart still runs."""
+        provider = self.make("s1")
+        tried: list[int] = []
+        with mock.patch.object(provider, "_ensure_sidecar", lambda: tried.append(1) or True), \
+                mock.patch.object(em.time, "monotonic", lambda: 1.0):
+            self.assertTrue(provider._restart_dead_sidecar(em.SidecarError("down", unreachable=True)))
+        self.assertEqual(tried, [1])
+        provider.shutdown()
+
     def test_writes_are_kept_while_the_sidecar_cannot_start_and_sent_when_it_is_back(self) -> None:
         """R10: bounded resend in order once the sidecar answers again (here: restarted by someone else)."""
         provider = self.make("s1")
