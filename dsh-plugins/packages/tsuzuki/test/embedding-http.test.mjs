@@ -139,7 +139,12 @@ test('sidecar: backfill indexes every window of a store that has one longer than
   const config = { ...defaults(dir), port: 0, embedding: { ...defaults(dir).embedding, baseUrl: ep.url, autoPull: false } }
   const s = await start(config)
   try {
-    // Recall waits for the startup backfill.
+    // The startup backfill indexes everything (waited for here: slow machines take longer than a recall waits).
+    for (let i = 0; i < 300; i++) {
+      const h = await fetch(`http://127.0.0.1:${s.port}/health`).then(r => r.json())
+      if (h.stats.units === said.length) break
+      await new Promise(r => setTimeout(r, 100))
+    }
     const recall = await fetch(`http://127.0.0.1:${s.port}/v1/memory/search`, { method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ query: 'Where did I move? Kyoto', rerank: false }) }).then(r => r.json())
     assert.match(recall.text, /Kyoto/)

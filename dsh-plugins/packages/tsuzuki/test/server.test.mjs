@@ -302,7 +302,7 @@ test('malformed JSON or a body that is not an object is a 400, not a 500 (R21)',
   }
 })
 
-test('an engine that cannot start: the sidecar stays up, stores messages and says why in /health (R3, R7)', async () => {
+test('an engine that cannot start: the sidecar stays up, stores messages and says why in /health (R3, R7)', { skip: process.platform === 'win32' && 'POSIX-only (the Metal engine runs on macOS; fake executables are shell scripts)' }, async () => {
   const dir = mkdtempSync(join(tmpdir(), 'sidecar-'))
   const engineRoot = mkdtempSync(join(tmpdir(), 'no-engine-'))  // no .venv, no models: a fresh clone without step 2
   const s = await start({ ...defaults(dir), port: 0, embedding: { ...defaults(dir).embedding,
@@ -326,7 +326,7 @@ test('an engine that cannot start: the sidecar stays up, stores messages and say
   }
 })
 
-test('EngineServer.ensure fails with the reason, never with an unhandled spawn error (R3)', async () => {
+test('EngineServer.ensure fails with the reason, never with an unhandled spawn error (R3)', { skip: process.platform === 'win32' && 'POSIX-only (the Metal engine runs on macOS; fake executables are shell scripts)' }, async () => {
   const root = mkdtempSync(join(tmpdir(), 'engine-'))
   const modelDir = join(root, 'model')
   mkdirSync(modelDir)
@@ -551,13 +551,15 @@ test('a new config gets a random token and private files; bodies over the limit 
   const path = join(dir, 'conf', 'config.json')
   const config = loadConfig(path)
   assert.match(config.token, /^[0-9a-f]{48}$/)
-  assert.equal(statSync(path).mode & 0o777, 0o600)
+  if (process.platform !== 'win32') assert.equal(statSync(path).mode & 0o777, 0o600)  // Windows: the folder's ACLs
   assert.equal(loadConfig(path).token, config.token, 'kept on the next start')
   const emb = await fakeEmbeddings()
   const s = await start({ ...config, dataDir: join(dir, 'data'), port: 0, embedding: { ...config.embedding, baseUrl: emb.url, autoPull: false } })
   try {
-    assert.equal(statSync(join(dir, 'data')).mode & 0o777, 0o700)
-    assert.equal(statSync(join(dir, 'data', 'memory.db')).mode & 0o777, 0o600)
+    if (process.platform !== 'win32') {
+      assert.equal(statSync(join(dir, 'data')).mode & 0o777, 0o700)
+      assert.equal(statSync(join(dir, 'data', 'memory.db')).mode & 0o777, 0o600)
+    }
     const ask = (headers, body) => new Promise((resolve, reject) => {
       const req = request({ host: '127.0.0.1', port: s.port, path: '/v1/memory/recall', method: 'POST',
         headers: { 'content-type': 'application/json', ...headers } }, res => { res.resume(); res.on('end', () => resolve(res.statusCode)) })
@@ -577,7 +579,7 @@ test('a new config gets a random token and private files; bodies over the limit 
   }
 })
 
-test('embedding.llamacpp and chat.llamacpp: the sidecar starts llama-server on demand, once, and uses it', async () => {
+test('embedding.llamacpp and chat.llamacpp: the sidecar starts llama-server on demand, once, and uses it', { skip: process.platform === 'win32' && 'POSIX-only (the Metal engine runs on macOS; fake executables are shell scripts)' }, async () => {
   const { unlinkSync } = await import('node:fs')
   const dir = mkdtempSync(join(tmpdir(), 'sidecar-'))
   const fake = fileURLToPath(new URL('./fixtures/fake-llama-server.mjs', import.meta.url))

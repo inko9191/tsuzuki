@@ -44,7 +44,7 @@ Code, tests, package files and user documentation: the user-facing names changed
 | `dsh-plugins/packages/memory-egemma/src/index.ts` | `dsh-plugins/packages/tsuzuki/src/index.ts` | `5edfb9d62e75213b5bb4fdb201d86e3fa54314d68c8796bc09ef1f44132809c6` | `9fbf526891a8dd79494f434428a6d1ba3f385742a18f5b048b84fde3656b97c2` |
 | `dsh-plugins/packages/memory-egemma/src/server.ts` | `dsh-plugins/packages/tsuzuki/src/server.ts` | `a05e80989ff970648a61e9cb309060bce2a214b851db48737f7d803def6f526e` | `0b2cd06ef1b7c0b170f66221a001a5637b5a93cf948473910db39fb7e3815f0c` |
 | `dsh-plugins/packages/memory-egemma/test/make_fixtures.py` | `dsh-plugins/packages/tsuzuki/test/make_fixtures.py` | `18bb31583ab27780f0ddae1311e6b3c5c4dfeb1a93f8dee5775a7a977b0e4326` | `7dcde1ec6727951edc8317d5f05f0fc3b7d613fef9f8b671060320f4e14b80e4` |
-| `dsh-plugins/packages/memory-egemma/test/server.test.mjs` | `dsh-plugins/packages/tsuzuki/test/server.test.mjs` | `191cebb09dc224a240985ada545c15ee4f2f81682db614e0c96426a2c660d769` | `204d0a4b65f5cdcf814accf205878bd706e1444a486cc5fb892416acb5a04d16` |
+| `dsh-plugins/packages/memory-egemma/test/server.test.mjs` | `dsh-plugins/packages/tsuzuki/test/server.test.mjs` | `191cebb09dc224a240985ada545c15ee4f2f81682db614e0c96426a2c660d769` | `94693a625684b80155be33404a567f10eca5f0f034f0969ed3961db097d2e71d` |
 | `dsh-plugins/packages/text-embeddings-egemma/NOTICE` | `dsh-plugins/packages/text-embeddings-tsuzuki/NOTICE` | `8be5a3d05f729dce1436c4a98e9390537b5fcca875622c96dea766a4f2a4a38e` | `edb434829e590a1dd5561e139f0602e90643461decc7be6ac757b0a50db98f56` |
 | `dsh-plugins/packages/text-embeddings-egemma/README.md` | `dsh-plugins/packages/text-embeddings-tsuzuki/README.md` | `cc001489578ef6f678c8df5c8f92f5cd04f23cf1d9b0d4b461dc0bfb6815e637` | `79e847d869a3d652c1c6708c37164d53004aad36817aa059b0552274fa403d75` |
 | `dsh-plugins/packages/text-embeddings-egemma/cordis.patch.yml` | `dsh-plugins/packages/text-embeddings-tsuzuki/cordis.patch.yml` | `bee3dd102578389b6f7966e3e6ae09614481dfd6459f8a337f0ef2a50f416e8e` | `081eba7ea83623fb9cd2226c083820129d817439c6a888a9deec7868a1192dc3` |
@@ -106,9 +106,9 @@ Windows fixes, made the same way in the development repository (branch `dsh-plug
 
 ## Changed after publication (2026-10-25)
 
-Made in the development repository first (branch `dsh-plugin`, up to commit `0ec4416`), then copied here: evaluation records of S2, S3, J1-Q and the scale diagnosis (unchanged); the scale-test scripts (unchanged: they keep the development path `dsh-plugins/packages/memory-egemma`, so that their sha256 match the plan files; to run them here, point `PKG` in `scripts/eval/scale/common.mjs` at `dsh-plugins/packages/tsuzuki`); and the code changes of this round (update checks retry a dropped connection; no request state kept on the close signal; rerank and the forget tools off by default; llama.cpp embeddings in the installers, started on demand by the sidecar, and the one-command setup `scripts/setup.mjs`; the security fixes listed in the README's Privacy section), renamed as above.
+Made in the development repository first (branch `dsh-plugin`, up to commit `6497c5a`), then copied here: evaluation records of S2, S3, J1-Q and the scale diagnosis (unchanged); the scale-test scripts (unchanged: they keep the development path `dsh-plugins/packages/memory-egemma`, so that their sha256 match the plan files; to run them here, point `PKG` in `scripts/eval/scale/common.mjs` at `dsh-plugins/packages/tsuzuki`); and the code changes of this round (update checks retry a dropped connection; no request state kept on the close signal; rerank and the forget tools off by default; llama.cpp embeddings in the installers, started on demand by the sidecar, and the one-command setup `scripts/setup.mjs`; the security fixes listed in the README's Privacy section), renamed as above.
 
-| File here | sha256 here | Development file at `0ec4416` | its sha256 | |
+| File here | sha256 here | Development file at `6497c5a` | its sha256 | |
 |---|---|---|---|---|
 | `docs/MEMORY_JA_J1Q_RUNLOG.md` | `07aa2ababfee6c322cde6b9636c3be4c66a50bf6762c5d76fd48e94f2cb7b9fd` | `docs/MEMORY_JA_J1Q_RUNLOG.md` | `07aa2ababfee6c322cde6b9636c3be4c66a50bf6762c5d76fd48e94f2cb7b9fd` | same file |
 | `docs/MEMORY_SCALE_S2_PREREG.md` | `a394bb644dbfe2a96325903301063184761e40fb429fb137b9175390f5165ce1` | `docs/MEMORY_SCALE_S2_PREREG.md` | `a394bb644dbfe2a96325903301063184761e40fb429fb137b9175390f5165ce1` | same file |
@@ -126,7 +126,7 @@ Made in the development repository first (branch `dsh-plugin`, up to commit `0ec
 | `dsh-plugins/packages/tsuzuki/test/memory.test.mjs` | `b354b13c00a968c1ef3477a732f208ef09864663836b43e81d9ade4ab3d0925b` | `dsh-plugins/packages/memory-egemma/test/memory.test.mjs` | `b354b13c00a968c1ef3477a732f208ef09864663836b43e81d9ade4ab3d0925b` | same file |
 | `dsh-plugins/packages/tsuzuki/test/plugin.test.mjs` | `3e77196357ff36d52583213b2f30aa271f91bb6927045138b7d21dae5205f413` | `dsh-plugins/packages/memory-egemma/test/plugin.test.mjs` | `3e77196357ff36d52583213b2f30aa271f91bb6927045138b7d21dae5205f413` | same file |
 | `dsh-plugins/packages/tsuzuki/test/redact.test.mjs` | `5bc72118f2a2acadb084e363f723b0f7a77a154b4c61860bc2d78ed800843a24` | `dsh-plugins/packages/memory-egemma/test/redact.test.mjs` | `5bc72118f2a2acadb084e363f723b0f7a77a154b4c61860bc2d78ed800843a24` | same file |
-| `dsh-plugins/packages/tsuzuki/test/server.test.mjs` | `204d0a4b65f5cdcf814accf205878bd706e1444a486cc5fb892416acb5a04d16` | `dsh-plugins/packages/memory-egemma/test/server.test.mjs` | `dbe624e3b9a2fbb776f31f3f4f0569752961baf82f0832bd6b42ed472fa03ec1` | renamed as in "Renamed to tsuzuki" |
+| `dsh-plugins/packages/tsuzuki/test/server.test.mjs` | `94693a625684b80155be33404a567f10eca5f0f034f0969ed3961db097d2e71d` | `dsh-plugins/packages/memory-egemma/test/server.test.mjs` | `d163186340e3f259dfaabc3dc9671d88177f33b1cfa037db2104fd28bac2e3c2` | renamed as in "Renamed to tsuzuki" |
 | `dsh-plugins/scripts/install-desktop.sh` | `9ab9466b63057069c50f538ae4bb851c7b691f51534e21d1469d422e5b307d12` | `dsh-plugins/scripts/install-desktop.sh` | `d731cf4f9a36e597db2ceecf5d8189426e8ccf4e45cdecff1a44eba4e7f83133` | renamed as in "Renamed to tsuzuki" |
 | `integrations/hermes/README.md` | `91565e187271c74498955bda1d28ff755121ddfad0cca769f9d558dd8b0b296e` | `integrations/hermes/README.md` | `203ea973cb607488aab1ae3d5b66ccf98f8e46857a39e85324761838f4ece38c` | renamed as in "Renamed to tsuzuki" |
 | `integrations/hermes/install.py` | `052af15c031c542396f7453bcb51db611cbe13756d4835df9223e62b15f1f2d8` | `integrations/hermes/install.py` | `523e10c3ca42a02355901e2dc4cfb62ca74d8107826a9aa3eac2caee59b34955` | renamed as in "Renamed to tsuzuki" |
@@ -186,6 +186,9 @@ Made in the development repository first (branch `dsh-plugin`, up to commit `0ec
 | `server/egemma_server/app.py` | `746e959afcaa4495b8e71f142271455e52a36b6064c3052e3847acf945102568` | `server/egemma_server/app.py` | `746e959afcaa4495b8e71f142271455e52a36b6064c3052e3847acf945102568` | same file |
 | `dsh-plugins/packages/tsuzuki/test/fixtures/fake-llama-server.mjs` | `01c2a1e5295b74cdfab6780b76c8e14badff15d51bde765e679dc23d80385f3b` | `dsh-plugins/packages/memory-egemma/test/fixtures/fake-llama-server.mjs` | `01c2a1e5295b74cdfab6780b76c8e14badff15d51bde765e679dc23d80385f3b` | same file |
 | `scripts/setup.mjs` | `92c8ef964576e5a386ee5a03b01bd3a8ce1267918595cbb3d8631f858da19828` | `scripts/setup.mjs` | `fc7a82af691e055dc3adc8c1c151754c2ed4f63e07957143bbe6c13870cb8e35` | renamed as in "Renamed to tsuzuki" |
+| `dsh-plugins/packages/tsuzuki/test/embedding-http.test.mjs` | `015e80b64ca6148945edccafbb9de667ccb54c14b8119d2ca4889a8fe0c85cff` | `dsh-plugins/packages/memory-egemma/test/embedding-http.test.mjs` | `015e80b64ca6148945edccafbb9de667ccb54c14b8119d2ca4889a8fe0c85cff` | same file |
+
+Only in this repository: `.github/workflows/ci.yml` (tests on Linux, Windows and macOS, and the quick start end to end).
 
 ## Left out
 

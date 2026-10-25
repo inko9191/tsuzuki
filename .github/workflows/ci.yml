@@ -34,8 +34,17 @@ jobs:
         run: |
           npx -y pnpm@10.26.1 install --frozen-lockfile
           npx -y pnpm@10.26.1 test
+      - name: Hermes Agent (the version the provider was tested with)
+        if: runner.os != 'Windows'
+        uses: actions/checkout@v4
+        with:
+          repository: NousResearch/hermes-agent
+          ref: 40cc180823d182826536416de2fc27be44b4ac57
+          path: hermes-agent
       - name: Hermes provider and installer tests
         if: runner.os != 'Windows'  # the tests fake processes with POSIX shell scripts
+        env:
+          HERMES_AGENT_ROOT: ${{ github.workspace }}/hermes-agent
         run: |
           python -I -B integrations/hermes/tests/test_tsuzuki.py
           python -I -B integrations/hermes/tests/test_install.py
