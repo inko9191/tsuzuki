@@ -4,17 +4,13 @@
 //   2. downloads the models after asking (EmbeddingGemma 300m GGUF for search, Gemma 4 E2B GGUF for facts),
 //   3. connects the memory to Hermes Agent, or prepares the HTTP sidecar for any other app,
 //   4. checks that storing, recalling and fact extraction work (in a throwaway store).
-// The sidecar starts the two llama-servers itself when it needs them; you do not run them.
-//
-//   node scripts/setup.mjs                      # asks what to do
-//   node scripts/setup.mjs --for hermes [--profile default] [--hermes-home DIR]
-//   node scripts/setup.mjs --for app            # the HTTP sidecar (~/.tsuzuki/config.json)
-//   options: --yes (accept the defaults and the model licenses), --no-facts, --models DIR, --llama-server PATH,
-//            --skip-build, --skip-check
+// The memory starts the two llama-servers itself when it needs them; you do not run them.
+// Run with --help for the options.
 import { spawn, spawnSync } from 'node:child_process'
 import { createHash, randomBytes } from 'node:crypto'
-import { chmodSync, createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync,
-  writeFileSync } from 'node:fs'
+import { chmodSync, createReadStream, createWriteStream, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync,
+  statSync, writeFileSync } from 'node:fs'
+import { createServer } from 'node:net'
 import { homedir, platform, tmpdir } from 'node:os'
 import { delimiter, dirname, join, resolve } from 'node:path'
 import { createInterface } from 'node:readline/promises'
@@ -24,10 +20,35 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const PKG = join(ROOT, 'dsh-plugins/packages/tsuzuki')
 const SERVER_JS = join(PKG, 'lib/server.js')
 const WIN = platform() === 'win32'
-const args = process.argv.slice(2)
-const flag = name => args.includes(`--${name}`)
-const option = (name, fallback = '') => { const i = args.indexOf(`--${name}`); return i >= 0 && args[i + 1] ? args[i + 1] : fallback }
-const YES = flag('yes')
+const HOME_DIR = join(homedir(), '.tsuzuki')
+const HELP = `Usage: node scripts/setup.mjs [options]
+
+  --for hermes|app       connect Hermes Agent, or prepare the HTTP sidecar for another app (asked if missing)
+  --profile NAME         Hermes profile (default: "default", the Hermes home itself)
+  --hermes-home DIR      Hermes home (default: $HERMES_HOME, else ~/.hermes; on Windows %LOCALAPPDATA%\\hermes)
+  --models DIR           where the models go (default: ~/.tsuzuki/models)
+  --llama-server PATH    llama.cpp's llama-server, if it is not on PATH
+  --no-facts             do not download the facts model (memory works on the messages alone)
+  --yes                  do not ask: accept the defaults and the model licenses
+  --skip-build           do not rebuild the plugins (if they are built)
+  --skip-check           do not run the final check
+  --stop                 stop the llama-servers the memory started, and exit
+  --help                 this text`
+
+// -- options ----------------------------------------------------------------------------------------
+const argv = process.argv.slice(2)
+const opts = {}
+const VALUED = ['for', 'profile', 'hermes-home', 'models', 'llama-server']
+const FLAGS = ['no-facts', 'yes', 'skip-build', 'skip-check', 'stop', 'help', 'accept-gemma-terms']
+for (let i = 0; i < argv.length; i++) {
+  const m = /^--([a-z-]+)(?:=(.*))?$/.exec(argv[i])
+  if (!m || !(VALUED.includes(m[1]) || FLAGS.includes(m[1]))) { console.error(`unknown argument: ${argv[i]}\n\n${HELP}`); process.exit(2) }
+  const [, key, inline] = m
+  opts[key] = VALUED.includes(key) ? (inline ?? argv[++i]) : true
+  if (VALUED.includes(key) && !opts[key]) { console.error(`--${key} needs a value`); process.exit(2) }
+}
+if (opts.help) { console.log(HELP); process.exit(0) }
+const YES = Boolean(opts.yes)
 
 const MODELS = {
   embedding: {
@@ -36,7 +57,7 @@ const MODELS = {
     url: 'https://huggingface.co/ggml-org/embeddinggemma-300M-GGUF/resolve/main/embeddinggemma-300M-Q8_0.gguf',
     sha256: 'b5ce9d77a3fc4b3b39ccb5643c36777911cc4eb46a66962eadfa3f5f60490d63',
     size: 333_590_944,
-    license: 'the Gemma Terms of Use (https://ai.google.dev/gemma/terms). Downloading it means you accept them.',
+    license: 'the Gemma Terms of Use (https://ai.google.dev/gemma/terms); downloading it means you accept them',
   },
   facts: {
     title: 'Gemma 4 E2B (QAT q4_0 GGUF), for pulling facts out of past conversations',
@@ -44,24 +65,29 @@ const MODELS = {
     url: 'https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf/resolve/main/gemma-4-E2B_q4_0-it.gguf',
     sha256: 'fa401b55b07ee70a54c6dae3903c783a6e65064312529ea57175cb5f8dec6634',
     size: 3_349_516_256,
-    license: 'Apache 2.0.',
+    license: 'Apache 2.0',
   },
 }
 
+class SetupError extends Error {}
 const say = (...a) => console.log(...a)
 const step = title => say(`\n== ${title}`)
-const fail = message => { console.error(`\n✗ ${message}`); process.exit(1) }
 const mb = n => `${Math.round(n / 1e6).toLocaleString()} MB`
 
-const rl = process.stdin.isTTY ? createInterface({ input: process.stdin, output: process.stdout }) : null
-async function ask(question, fallback) {
-  if (YES || !rl) return fallback
-  const answer = (await rl.question(`${question} `)).trim()
-  return answer || fallback
+// One readline per question, closed right after, so Ctrl+C works everywhere else (the build, downloads).
+async function ask(question, fallback, what) {
+  if (YES) return fallback
+  if (!process.stdin.isTTY) throw new SetupError(`no terminal to ask ${what}. Pass the answer as an option (see --help), or --yes.`)
+  const rl = createInterface({ input: process.stdin, output: process.stdout })
+  rl.on('SIGINT', () => { rl.close(); process.stdout.write('\n'); process.exit(130) })
+  try {
+    return (await rl.question(`${question} `)).trim() || fallback
+  } finally {
+    rl.close()
+  }
 }
-async function confirm(question, fallback = true) {
-  const answer = await ask(`${question} ${fallback ? '[Y/n]' : '[y/N]'}`, fallback ? 'y' : 'n')
-  return /^y/i.test(answer)
+async function confirm(question, what, fallback = true) {
+  return /^y/i.test(await ask(`${question} ${fallback ? '[Y/n]' : '[y/N]'}`, fallback ? 'y' : 'n', what))
 }
 
 // -- 1. Node and the build --------------------------------------------------------------------
@@ -70,26 +96,37 @@ function nodeOk() {
   return major >= 24 || (major === 22 && minor >= 19)
 }
 
-function run(command, commandArgs, cwd) {
-  const r = spawnSync(command, commandArgs, { cwd, stdio: 'inherit', shell: WIN })
-  if (r.status !== 0) fail(`${command} ${commandArgs.join(' ')} failed (in ${cwd})`)
+/** Runs a command quietly; its output is shown only when it fails. */
+function run(command, args, cwd, label) {
+  process.stdout.write(`  ${label}... `)
+  const env = { ...process.env, npm_config_update_notifier: 'false' }
+  // npx is a .cmd on Windows: run it through cmd.exe with a fixed command line (these arguments contain no spaces).
+  const r = WIN
+    ? spawnSync('cmd.exe', ['/d', '/s', '/c', [command, ...args].join(' ')], { cwd, env, encoding: 'utf8', maxBuffer: 64 << 20 })
+    : spawnSync(command, args, { cwd, env, encoding: 'utf8', maxBuffer: 64 << 20 })
+  if (r.status !== 0) {
+    say('failed')
+    throw new SetupError(`${command} ${args.join(' ')} failed in ${cwd}:\n${`${r.stdout ?? ''}${r.stderr ?? ''}${r.error ?? ''}`.slice(-3000)}`)
+  }
+  say('ok')
 }
 
 function build() {
-  step('Building the plugins and the sidecar')
+  step('Building the plugins and the memory server')
   const pnpm = ['-y', 'pnpm@10.26.1']
   const dir = join(ROOT, 'dsh-plugins')
-  run('npx', [...pnpm, 'install', '--frozen-lockfile'], dir)
-  run('npx', [...pnpm, 'run', 'build'], dir)
-  run('npx', [...pnpm, '-r', '--filter', './packages/*', 'pack', '--pack-destination', 'dist'], dir)
+  run('npx', [...pnpm, 'install', '--frozen-lockfile', '--config.confirm-modules-purge=false'], dir, 'installing packages')
+  run('npx', [...pnpm, 'run', 'build'], dir, 'building')
+  run('npx', [...pnpm, '-r', '--filter', './packages/*', 'pack', '--pack-destination', 'dist'], dir, 'packing (for DeepSeek Harness)')
 }
 
 // -- 2. llama-server ------------------------------------------------------------------------------
 function findOnPath(name) {
-  const exts = WIN ? (process.env.PATHEXT || '.EXE;.CMD;.BAT').split(';') : ['']
-  const dirs = (process.env.PATH || '').split(delimiter).concat(WIN ? [] : ['/opt/homebrew/bin', '/usr/local/bin'])
+  const exts = WIN ? ['.exe'] : ['']
+  const extra = WIN ? [] : ['/opt/homebrew/bin', '/usr/local/bin', '/home/linuxbrew/.linuxbrew/bin', join(homedir(), '.linuxbrew/bin')]
+  const dirs = (process.env.PATH || '').split(delimiter).map(d => d.replace(/^"(.*)"$/, '$1')).concat(extra)
   for (const dir of dirs) for (const ext of exts) {
-    const p = join(dir, name + ext)
+    const p = join(dir, name.endsWith(ext) ? name : name + ext)
     if (dir && existsSync(p)) return p
   }
   return null
@@ -97,19 +134,24 @@ function findOnPath(name) {
 
 function llamaServer() {
   step('Looking for llama.cpp (llama-server)')
-  const given = option('llama-server')
-  const binary = given || findOnPath('llama-server')
-  if (!binary || !existsSync(binary)) {
+  const given = opts['llama-server']
+  const binary = given ? (existsSync(given) ? resolve(given) : findOnPath(given)) : findOnPath('llama-server')
+  if (!binary) {
     const how = platform() === 'darwin' ? 'brew install llama.cpp'
-      : WIN ? 'winget install llama.cpp   (or download a build from https://github.com/ggml-org/llama.cpp/releases)'
-        : 'download a build from https://github.com/ggml-org/llama.cpp/releases, or your package manager (e.g. brew install llama.cpp)'
-    fail(`llama-server was not found. Install llama.cpp first:\n    ${how}\n  then run this again (or pass --llama-server <path>).`)
+      : WIN ? 'winget install llama.cpp   (or a Windows build from https://github.com/ggml-org/llama.cpp/releases)'
+        : 'a Linux build from https://github.com/ggml-org/llama.cpp/releases (or brew install llama.cpp)'
+    throw new SetupError(`llama-server was not found${given ? ` at ${given}` : ' on PATH'}. Install llama.cpp first:\n    ${how}\n`
+      + '  then run this again (or pass --llama-server <path to llama-server>).')
   }
   const help = spawnSync(binary, ['--help'], { encoding: 'utf8', timeout: 30000 })
-  const text = `${help.stdout}${help.stderr}`
-  if (!/--embedding/.test(text)) fail(`${binary} does not look like a recent llama-server (no --embedding option); update llama.cpp`)
+  const text = `${help.stdout ?? ''}${help.stderr ?? ''}`
+  if (help.error || !/--embedding/.test(text)) {
+    throw new SetupError(`${binary} --help did not work as expected (${help.error ? help.error.message : `exit ${help.status}`}):\n`
+      + `${text.slice(0, 1500)}\n  Use a recent llama.cpp build (with --embedding), and pass its llama-server with --llama-server.`)
+  }
   say(`  ${binary}`)
-  return { binary, reasoningFlag: /--reasoning\b/.test(text) }
+  // `--reasoning [on|off|auto]` only; older builds have just --reasoning-format / --reasoning-budget.
+  return { binary, reasoningFlag: /--reasoning(?![-\w])/.test(text) }
 }
 
 // -- 3. models ------------------------------------------------------------------------------------
@@ -119,30 +161,45 @@ async function sha256(path) {
   return hash.digest('hex')
 }
 
+const complete = (path, model) => existsSync(path) && statSync(path).size === model.size
+
 async function download(model, dir) {
   const path = join(dir, model.file)
-  if (existsSync(path)) {
+  if (complete(path, model)) {
     say(`  ${model.file}: already downloaded`)
     return path
   }
   const part = `${path}.part`
   let have = existsSync(part) ? statSync(part).size : 0
-  const response = await fetch(model.url, { headers: have ? { Range: `bytes=${have}-` } : {}, redirect: 'follow' })
-  if (!(response.ok || response.status === 206)) fail(`download failed: HTTP ${response.status} for ${model.url}`)
-  if (have && response.status !== 206) have = 0  // the server sent the whole file again
-  const out = createWriteStream(part, { flags: have ? 'a' : 'w', mode: 0o644 })
-  let got = have, last = 0
-  for await (const chunk of response.body) {
-    if (!out.write(chunk)) await new Promise(r => out.once('drain', r))
-    got += chunk.length
-    if (Date.now() - last > 1000) { process.stdout.write(`\r  ${model.file}: ${mb(got)} / ${mb(model.size)}   `); last = Date.now() }
+  if (have < model.size) {
+    const controller = new AbortController()
+    let stall = setTimeout(() => controller.abort(), 60_000)
+    try {
+      const response = await fetch(model.url, { headers: have ? { Range: `bytes=${have}-` } : {}, redirect: 'follow', signal: controller.signal })
+      if (!(response.ok || response.status === 206)) throw new SetupError(`download failed: HTTP ${response.status} for ${model.url}`)
+      if (have && response.status !== 206) have = 0  // the server sent the whole file again
+      const out = createWriteStream(part, { flags: have ? 'a' : 'w' })
+      let got = have, last = 0
+      for await (const chunk of response.body) {
+        clearTimeout(stall)
+        stall = setTimeout(() => controller.abort(), 60_000)  // no data for a minute: give up (running setup again resumes)
+        if (!out.write(chunk)) await new Promise(r => out.once('drain', r))
+        got += chunk.length
+        if (Date.now() - last > 1000) { process.stdout.write(`\r  ${model.file}: ${mb(got)} / ${mb(model.size)}   `); last = Date.now() }
+      }
+      await new Promise((r, j) => { out.once('error', j); out.end(r) })
+    } catch (error) {
+      if (error instanceof SetupError) throw error
+      throw new SetupError(`downloading ${model.file} stopped (${error.cause?.code ?? error.message}). Run setup again: it continues where it stopped.`)
+    } finally {
+      clearTimeout(stall)
+    }
   }
-  await new Promise(r => out.end(r))
-  process.stdout.write(`\r  ${model.file}: ${mb(got)} / ${mb(model.size)}, checking...   \n`)
+  process.stdout.write(`\r  ${model.file}: ${mb(model.size)}, checking...                \n`)
   const digest = await sha256(part)
   if (digest !== model.sha256) {
     rmSync(part)
-    fail(`${model.file} is not the expected file (sha256 ${digest}); run setup again`)
+    throw new SetupError(`${model.file} is not the expected file (sha256 ${digest}); run setup again to download it again`)
   }
   renameSync(part, path)
   return path
@@ -152,16 +209,18 @@ async function models(dir) {
   step(`Models (in ${dir})`)
   mkdirSync(dir, { recursive: true })
   const e = MODELS.embedding
-  if (!existsSync(join(dir, e.file))) {
-    say(`  ${e.title}: ${mb(e.size)}.\n  It is under ${e.license}`)
-    if (!flag('accept-gemma-terms') && !(await confirm('  Download it?', true))) fail('search needs this model; nothing was changed')
+  if (!complete(join(dir, e.file), e)) {
+    say(`  ${e.title}: ${mb(e.size)}.\n  It is under ${e.license}.`)
+    if (!opts['accept-gemma-terms'] && !(await confirm('  Download it?', 'whether to download EmbeddingGemma (Gemma Terms of Use)'))) {
+      throw new SetupError('search needs this model, so setup stopped here. Run it again when you want to continue.')
+    }
   }
   const embedding = await download(e, dir)
   let facts = null
   const f = MODELS.facts
-  if (!flag('no-facts')) {
-    const present = existsSync(join(dir, f.file))
-    if (present || await confirm(`  ${f.title}: ${mb(f.size)}, ${f.license}\n  Recommended: with facts, recall holds up better as conversations pile up. Download it?`, true)) {
+  if (!opts['no-facts']) {
+    if (complete(join(dir, f.file), f) || await confirm(`  ${f.title}: ${mb(f.size)}, ${f.license}.\n`
+      + '  Recommended: with facts, recall holds up better as conversations pile up. Download it?', 'whether to download Gemma 4 E2B (or pass --no-facts)')) {
       facts = await download(f, dir)
     } else {
       say('  Without it, memory works on the messages alone (facts off). Run setup again later to add it.')
@@ -171,22 +230,28 @@ async function models(dir) {
 }
 
 // -- 4. the host --------------------------------------------------------------------------------
-function managedSettings(llama, files) {
-  const embedding = { llamacpp: { model: files.embedding, binary: llama.binary } }
-  const chat = files.facts ? { llamacpp: { model: files.facts, binary: llama.binary,
+/** The memory's settings for the two llama-servers; their logs go to `logDir`. */
+function managedSettings(llama, files, logDir) {
+  const embedding = { llamacpp: { model: files.embedding, binary: llama.binary, log: join(logDir, 'llama-embedding.log') } }
+  const chat = files.facts ? { llamacpp: { model: files.facts, binary: llama.binary, log: join(logDir, 'llama-chat.log'),
     args: ['-c', '8192', '-np', '1', ...(llama.reasoningFlag ? ['--reasoning', 'off'] : [])] } } : null
   return { embedding, chat }
 }
 
-function writeJson(path, value) {
-  mkdirSync(dirname(path), { recursive: true, mode: 0o700 })
-  writeFileSync(path, JSON.stringify(value, null, 2) + '\n', { mode: 0o600 })
-  chmodSync(path, 0o600)
+function privateDir(dir) {
+  mkdirSync(dir, { recursive: true, mode: 0o700 })
+  if (!WIN) chmodSync(dir, 0o700)
 }
 
-/** Our settings merged into a sidecar config (created with a random token when missing). */
+function writeJson(path, value) {
+  privateDir(dirname(path))
+  writeFileSync(path, JSON.stringify(value, null, 2) + '\n', { mode: 0o600 })
+  if (!WIN) chmodSync(path, 0o600)
+}
+
+/** Our settings merged into a memory config (created with a random token when missing). */
 function configure(path, dataDir, port, settings) {
-  const config = existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : { port, dataDir, token: randomBytes(24).toString('hex') }
+  const config = existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : { port, dataDir }
   config.token ||= randomBytes(24).toString('hex')
   config.embedding = { ...(config.embedding ?? {}), ...settings.embedding }
   delete config.embedding.engine
@@ -196,61 +261,84 @@ function configure(path, dataDir, port, settings) {
   return config
 }
 
-function python() {
-  for (const p of WIN ? ['py', 'python', 'python3'] : ['python3', 'python']) {
-    const r = spawnSync(p, ['--version'], { encoding: 'utf8', shell: WIN })
-    if (r.status === 0) return p
-  }
-  fail('Python 3 was not found (Hermes needs it too)')
-}
-
 function hermesHome() {
-  const given = option('hermes-home')
-  if (given) return resolve(given)
+  if (opts['hermes-home']) return resolve(opts['hermes-home'])
+  if (process.env.HERMES_HOME) return resolve(process.env.HERMES_HOME)
   const local = WIN && process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, 'hermes') : null
   return local && existsSync(local) ? local : join(homedir(), '.hermes')
 }
 
-async function forHermes(settings) {
-  step('Connecting to Hermes Agent')
-  const home = hermesHome()
-  const profile = option('profile') || await ask('  Hermes profile ("default" is the Hermes home itself) [default]:', 'default')
-  say('  Quit Hermes now if it is running (it reads its config only when it starts).')
-  const profileDir = profile === 'default' ? home : join(home, 'profiles', profile)
-  if (!existsSync(join(profileDir, 'config.yaml'))) fail(`${join(profileDir, 'config.yaml')} not found: start Hermes once with this profile, or pass --hermes-home`)
-  const r = spawnSync(python(), [join(ROOT, 'integrations/hermes/install.py'), '--home', home, '--no-chat', '--embedding', 'llamacpp', profile],
-    { stdio: 'inherit', shell: WIN })
-  if (r.status !== 0) fail('the Hermes installer stopped (see above); nothing else was changed')
-  const path = join(profileDir, 'tsuzuki', 'config.json')
-  const config = configure(path, dirname(path), 8297, settings)
-  say(`  memory settings: ${path} (port ${config.port})`)
-  say(settings.chat ? '  facts: on, with Gemma 4 E2B started on demand on this machine (this replaces "facts: off" above)'
-    : '  facts: off (run setup again to add the facts model)')
-  return config
+/** Hermes' own Python when it has one (no system Python needed), else python3 / python / py. */
+function python(home) {
+  const tools = join(home, 'tools')
+  if (existsSync(tools)) {
+    for (const d of readdirSync(tools).filter(n => n.startsWith('python-')).sort().reverse()) {
+      for (const p of [join(tools, d, 'bin', 'python3'), join(tools, d, 'python.exe')]) if (existsSync(p)) return p
+    }
+  }
+  for (const p of WIN ? ['py', 'python', 'python3'] : ['python3', 'python']) {
+    if (spawnSync(p, ['--version'], { encoding: 'utf8' }).status === 0) return p
+  }
+  throw new SetupError('Python 3 was not found (the Hermes installer needs it)')
 }
 
-async function forApp(settings) {
-  step('Preparing the HTTP sidecar')
-  const path = join(homedir(), '.tsuzuki', 'config.json')
+async function forHermes(llama, files) {
+  step('Connecting to Hermes Agent')
+  const home = hermesHome()
+  const profile = opts.profile || await ask('  Hermes profile ("default" is the Hermes home itself) [default]:', 'default', 'the Hermes profile (--profile)')
+  const profileDir = profile === 'default' ? home : join(home, 'profiles', profile)
+  const configYaml = join(profileDir, 'config.yaml')
+  if (!existsSync(configYaml)) {
+    throw new SetupError(`${configYaml} was not found. Start Hermes once with this profile, or pass --hermes-home <dir>. `
+      + '(For another app than Hermes, use --for app.)')
+  }
+  if (!YES) await ask('  Quit Hermes if it is running, then press Enter.', '', 'that Hermes is not running')
+  const r = spawnSync(python(home), [join(ROOT, 'integrations/hermes/install.py'), '--home', home, '--no-chat', '--embedding', 'llamacpp', profile],
+    { encoding: 'utf8' })
+  // The installer's own notes about embeddings and facts do not apply: this script sets both below.
+  for (const l of `${r.stdout ?? ''}`.split('\n')) if (l && !/^ {2}(embeddings|facts):|^Restart Hermes/.test(l)) say(`  ${l.trim()}`)
+  if (r.status !== 0) throw new SetupError(`the Hermes installer stopped:\n${r.stderr || r.stdout}`)
+  const path = join(profileDir, 'tsuzuki', 'config.json')
+  const settings = managedSettings(llama, files, dirname(path))
   const config = configure(path, dirname(path), 8297, settings)
-  say(`  settings: ${path}`)
-  return config
+  say(`  memory settings: ${path} (port ${config.port})`)
+  say('  search: EmbeddingGemma, started on demand by the memory')
+  say(settings.chat ? '  facts: Gemma 4 E2B, started on demand on this machine (even if Hermes itself uses a cloud model)'
+    : '  facts: off (run setup again to add the facts model)')
+  return { config, configYaml }
+}
+
+async function forApp(llama, files) {
+  step('Preparing the memory server for your app')
+  const path = join(HOME_DIR, 'config.json')
+  const config = configure(path, join(HOME_DIR, 'memory'), 8297, managedSettings(llama, files, HOME_DIR))
+  say(`  settings: ${path} (port ${config.port}; memory in ${config.dataDir})`)
+  return { config }
 }
 
 // -- 5. check -------------------------------------------------------------------------------------
+async function freePort() {
+  const s = createServer()
+  await new Promise(r => s.listen(0, '127.0.0.1', r))
+  const { port } = s.address()
+  await new Promise(r => s.close(r))
+  return port
+}
+
 async function check(config, withFacts) {
   step('Checking (a throwaway memory; your own is not touched)')
   const dir = join(tmpdir(), `tsuzuki-check-${process.pid}`)
   rmSync(dir, { recursive: true, force: true })
-  const port = 18000 + Math.floor(Math.random() * 1000)
+  const port = await freePort()
   const token = randomBytes(16).toString('hex')
-  writeJson(join(dir, 'config.json'), { ...config, port, token, dataDir: join(dir, 'data'), facts: { intervalSeconds: 2 } })
+  writeJson(join(dir, 'config.json'), { ...config, port, token, dataDir: join(dir, 'data') })
   const child = spawn(process.execPath, [SERVER_JS, '--config', join(dir, 'config.json')], { stdio: ['ignore', 'pipe', 'pipe'] })
+  const exited = new Promise(r => child.once('exit', r))
   let output = ''
   child.stdout.on('data', d => { output += d })
   child.stderr.on('data', d => { output += d })
   const call = async (path, body) => {
-    const r = await fetch(`http://127.0.0.1:${port}${path}`, { method: body ? 'POST' : 'GET',
+    const r = await fetch(`http://127.0.0.1:${port}${path}`, { method: body ? 'POST' : 'GET', signal: AbortSignal.timeout(30_000),
       headers: { authorization: `Bearer ${token}`, ...(body ? { 'content-type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined })
     return r.json()
   }
@@ -259,51 +347,77 @@ async function check(config, withFacts) {
       try { if (await test()) return } catch { /* not up yet */ }
       await new Promise(r => setTimeout(r, 1000))
     }
-    child.kill()
-    fail(`${what} did not work within ${seconds} s. Sidecar output:\n${output.slice(-2000)}`)
+    throw new SetupError(`${what} did not work within ${seconds} s. The memory's output:\n${output.slice(-2000)}`)
   }
   try {
-    await waitFor(async () => (await call('/health')).status === 'ok', 30, 'starting the sidecar')
+    await waitFor(async () => (await call('/health')).status === 'ok', 30, 'starting the memory')
     say('  starting the models (the first time can take a minute)...')
     await call('/v1/memory/messages', { session: 'setup-a', messages: [
       { role: 'user', text: 'My dog is called Pochi and I live in Sendai.' }, { role: 'assistant', text: 'Pochi in Sendai, noted.' }] })
-    await waitFor(async () => (await call('/health')).stats.unindexed === 0, 300, 'storing a message (embedding model)')
+    await waitFor(async () => (await call('/health')).stats.unindexed === 0, 300, 'storing a message (the search model)')
     const r = await call('/v1/memory/recall', { query: "What is my dog's name?", session: 'setup-b' })
-    if (!/Pochi/.test(r.text)) fail(`recall did not find the stored message:\n${JSON.stringify(r).slice(0, 600)}`)
+    if (!/Pochi/.test(r.text)) throw new SetupError(`recall did not find the stored message:\n${JSON.stringify(r).slice(0, 600)}`)
     say('  ✓ a message from one conversation was recalled in another')
     if (withFacts) {
       await call('/v1/memory/flush', { session: 'setup-a' })
-      await waitFor(async () => (await call('/health')).stats.facts > 0, 300, 'fact extraction (chat model)')
+      await waitFor(async () => (await call('/health')).stats.facts > 0, 300, 'fact extraction (the facts model)')
       say('  ✓ facts are extracted')
     }
   } finally {
     child.kill()
-    rmSync(dir, { recursive: true, force: true })
+    await Promise.race([exited, new Promise(r => setTimeout(r, 5000))])
+    try { rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 }) } catch { /* a leftover temp folder is harmless */ }
+  }
+}
+
+// -- stop ----------------------------------------------------------------------------------------------
+function stopServers() {
+  // Only llama-servers this memory started: they carry --alias tsuzuki-embeddinggemma / tsuzuki-chat.
+  if (WIN) {
+    const r = spawnSync('powershell.exe', ['-NoProfile', '-Command',
+      "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match '--alias tsuzuki-(embeddinggemma|chat)' } | "
+      + 'ForEach-Object { Stop-Process -Id $_.ProcessId -Force; $_.ProcessId }'], { encoding: 'utf8' })
+    say(r.stdout.trim() ? 'Stopped the memory\'s llama-servers.' : 'No llama-server of the memory was running.')
+  } else {
+    const r = spawnSync('pkill', ['-f', '--', '--alias tsuzuki-(embeddinggemma|chat)'])
+    say(r.status === 0 ? 'Stopped the memory\'s llama-servers.' : 'No llama-server of the memory was running.')
   }
 }
 
 // -- main ------------------------------------------------------------------------------------------
-say('tsuzuki setup')
-if (!nodeOk()) fail(`Node ${process.versions.node} is too old: install Node 22.19 or later (https://nodejs.org)`)
-if (!flag('skip-build') || !existsSync(SERVER_JS)) build()
-const llama = llamaServer()
-const files = await models(resolve(option('models', join(homedir(), '.tsuzuki', 'models'))))
-const settings = managedSettings(llama, files)
-let target = option('for')
-if (!target) {
-  const answer = await ask('\nWhere will you use the memory?\n  1) Hermes Agent\n  2) another app (HTTP sidecar on 127.0.0.1)\nChoose [1]:', '1')
-  target = answer.startsWith('2') ? 'app' : 'hermes'
+async function main() {
+  if (opts.stop) return stopServers()
+  say('tsuzuki setup  (Ctrl+C stops it at any time; running it again continues)')
+  if (!nodeOk()) throw new SetupError(`Node ${process.versions.node} is not supported: install Node 22 (22.19 or later) or 24+ (https://nodejs.org)`)
+  let target = opts.for?.toLowerCase()
+  if (target && !['hermes', 'app'].includes(target)) throw new SetupError(`--for must be "hermes" or "app", not "${opts.for}"`)
+  if (!opts['skip-build'] || !existsSync(SERVER_JS)) build()
+  const llama = llamaServer()
+  privateDir(HOME_DIR)
+  const files = await models(resolve(opts.models || join(HOME_DIR, 'models')))
+  if (!target) {
+    const answer = await ask('\nWhere will you use the memory?\n  1) Hermes Agent\n  2) another app (HTTP sidecar on 127.0.0.1)\nChoose [1]:', '1',
+      'where to use the memory (--for hermes or --for app)')
+    target = answer.startsWith('2') ? 'app' : 'hermes'
+  }
+  const result = target === 'hermes' ? await forHermes(llama, files) : await forApp(llama, files)
+  if (!opts['skip-check']) await check(result.config, Boolean(files.facts))
+  step('Done')
+  const node = `"${process.execPath}"`
+  if (target === 'hermes') {
+    say('  Start Hermes. The memory and its models start by themselves when Hermes first needs them.')
+    say('  Check it with:  hermes memory status')
+    say(`  To let the agent delete memory when you ask, add  forget: true  under  memory: > tsuzuki:  in ${result.configYaml}`)
+  } else {
+    say(`  Start the memory server (keep it running while your app uses it):\n    ${node} "${SERVER_JS}"`)
+    say(`  Your app sends JSON to http://127.0.0.1:${result.config.port} with  Authorization: Bearer <token>  (the token is in ${join(HOME_DIR, 'config.json')}).`)
+    say('  Endpoints: POST /v1/memory/messages, /v1/memory/recall, /v1/memory/search (see the README).')
+  }
+  say('  The models\' llama-servers keep running in the background so the next start is fast (about 0.5 GB of memory,')
+  say(`  4 GB more with facts). Stop them with:  ${node} "${join(ROOT, 'scripts/setup.mjs')}" --stop`)
 }
-const config = target === 'hermes' ? await forHermes(settings) : await forApp(settings)
-if (!flag('skip-check')) await check(config, Boolean(files.facts))
-rl?.close()
-step('Done')
-if (target === 'hermes') {
-  say('  Start Hermes. The memory sidecar and the models start by themselves when Hermes first needs them.')
-  say('  To let the agent delete memory on request, add  forget: true  under memory: tsuzuki: in config.yaml.')
-} else {
-  say(`  Start the sidecar:   node "${SERVER_JS}"`)
-  say(`  Then send JSON with  Authorization: Bearer <token>  (the token is in ${join(homedir(), '.tsuzuki', 'config.json')}).`)
-  say('  Endpoints: POST /v1/memory/messages, /v1/memory/recall, /v1/memory/search (see the README).')
-}
-say('  The llama-servers keep running in the background after first use; they are reused next time.')
+
+main().catch(error => {
+  console.error(`\n✗ ${error instanceof SetupError ? error.message : error?.stack ?? error}`)
+  process.exit(1)
+})

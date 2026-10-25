@@ -16,13 +16,13 @@
 
 ## すぐに使う（macOS、Linux、Windows）
 
-**Node.js 22.19 以上**と **llama.cpp**（の `llama-server`）が要る。
+**Node.js 22（22.19 以上）か 24 以上**と **llama.cpp**（の `llama-server`）が要る。Hermes Agent で使うときも、ほかには要らない（導入スクリプトは Hermes 自身の Python を使う）。
 
 | | Node.js | llama.cpp |
 |---|---|---|
 | macOS | `brew install node` | `brew install llama.cpp` |
 | Windows | `winget install OpenJS.NodeJS.LTS` | `winget install llama.cpp`、または[リリース](https://github.com/ggml-org/llama.cpp/releases)のビルド |
-| Linux | [nodejs.org](https://nodejs.org) かパッケージマネージャ | [リリース](https://github.com/ggml-org/llama.cpp/releases)のビルド、または `brew install llama.cpp` |
+| Linux | [nodejs.org](https://nodejs.org)（ディストリビューションのパッケージは古いことが多い） | [リリース](https://github.com/ggml-org/llama.cpp/releases)のビルド、または `brew install llama.cpp` |
 
 あとは：
 
@@ -38,9 +38,11 @@ node scripts/setup.mjs
 3. 記憶を **Hermes Agent** につなぐ（先に Hermes を終了する）か、ほかのアプリのための **HTTP サイドカー**を用意する。
 4. 使い捨ての記憶で、ある会話の発言が別の会話で思い出せること、事実が抜き出せることを確かめる。
 
-そのあと自分で起動するものは無い。記憶が必要になったときに llama.cpp を自分で起動し、次のために動かしたままにする（検索で約 0.5 GB、事実ありでさらに約 4 GB のメモリ）。モデルは `~/.tsuzuki/models` に置く。エージェントがクラウドのモデルを使っていても、事実の抜き出しは手元で行う。
+Hermes なら、ほかに起動するものは無い。Hermes が最初に必要としたときに、記憶とモデルが自分で起動する。ほかのアプリでは、セットアップの最後に表示されるコマンドで記憶のサーバーを起動し、動かしたままにする。どちらでも、記憶は llama.cpp を自分で起動し、次のために動かしたままにする（検索で約 0.5 GB、事実ありでさらに約 4 GB のメモリ）。止めるときは `node scripts/setup.mjs --stop`。事実は会話のおよそ 1 分後に抜き出される（`POST /v1/memory/flush` のあとはすぐ）。エージェントがクラウドのモデルを使っていても、事実の抜き出しは手元で行う。
 
-DeepSeek Harness、自分で立てたモデルのサーバー、Ollama、このリポジトリの Mac 用エンジンを使うときは、[入れ方（手動）](#入れ方手動)。セットアップのスクリプトは Windows でも動くように書いてあるが、まだ macOS でしか動かしていない。
+モデルは `~/.tsuzuki/models`、記憶のサーバーのデータは `~/.tsuzuki/memory`（Hermes は `<プロファイル>/tsuzuki`）。`node scripts/setup.mjs --help` で選択肢（`--for hermes|app`、`--models`、`--llama-server`、`--no-facts`、`--yes` など）が出る。何度実行してもよく、途中で止まったダウンロードは続きから再開する。
+
+DeepSeek Harness、自分で立てたモデルのサーバー、Ollama、このリポジトリの Mac 用エンジンを使うときは、[入れ方（手動）](#入れ方手動)。セットアップのスクリプトは Windows でも動くように書いてある（ファイルの権限はユーザーのフォルダのもの）が、まだ macOS でしか動かしていない。
 
 ## 中身
 
@@ -394,7 +396,7 @@ node dsh-plugins/packages/tsuzuki/lib/server.js --config <フォルダ>/config.j
 - **秘密情報の伏せ字**（既定でオン）：保存・埋め込み・事実のモデルへの送信の前に（クエリも）、次を `[REDACTED:種類]` にする。API キーとトークン（OpenAI、Anthropic、GitHub、GitLab、Hugging Face、AWS、Google、Slack と Slack の Webhook、Stripe、npm、SendGrid、Discord）、JWT、bearer と Basic の認証情報、URL の中の認証情報、`password:`・`OPENAI_API_KEY=`・`token:` の形の値（パスワード などの日本語のラベルも。「パスワードは …」も、値に数字か記号があれば）、Luhn の検査に通るカード番号。パターンによるもので、誤検出を避ける側に寄せている。**珍しい形の秘密は漏れることがある。** 会話に秘密を貼って、これに頼らないこと。
 - **サイドカー**：`127.0.0.1` だけで待ち受け、JSON でない要求、ブラウザの `Origin` 付きの要求、ループバック以外の `Host` の要求は拒む（ウェブページからは使えない）。サイドカー自身や Hermes の導入スクリプトが書いた設定には無作為の `token` が入り、そのファイルを読めないプログラム（ほかのユーザー、サンドボックス）は拒まれる。`token` の無い設定（手で書いたもの、この版より前のもの）では、このマシンのどのプログラムからも使える。ループバック以外の `host` にはトークンが要る。
 - **ファイル**：記憶のフォルダは自分だけが読める形（0700）で作り、SQLite のファイルと WAL は 0600、`config.json` も 0600。埋め込みのエンジン（`egemma-server`）も、同じ Origin・Host・JSON の検査をする。
-- **忘れる**：ツール `memory_forget`（dsh）と `tsuzuki_forget`（Hermes）は**既定でオフ**。ツールの説明で、消す範囲をユーザーに示し、確認を取ってから呼ぶようモデルに求めているが、それはモデルへのお願いで、ウェブページや貼り付けた文に覆されうるため。使うときは `tool.forget: true`（dsh）か、Hermes のプロファイルの `config.yaml` の `memory.tsuzuki.forget: true` にする。ほかのホストは `POST /v1/memory/forget`。範囲は、1つのセッション、ある日時より前に保存したものすべて、すべて、の3つ。消えるのは、発言、そこから作った窓と事実、更新のリンク。SQLite のファイルと WAL も書き直すので、ファイルからも本文が消える。発言を1件ずつ消す機能は無い。対象外：ホスト自身のセッション履歴、保存先のコピーやバックアップ、ローカルのサーバーがすでに見たもの。手ですべて消すときは、ホストを止めて記憶のフォルダを消す（dsh は `$DSH_HOME/tsuzuki`、Hermes は `<プロファイル>/tsuzuki`、サイドカーは `config.json` のあるフォルダ）。
+- **忘れる**：ツール `memory_forget`（dsh）と `tsuzuki_forget`（Hermes）は**既定でオフ**。ツールの説明で、消す範囲をユーザーに示し、確認を取ってから呼ぶようモデルに求めているが、それはモデルへのお願いで、ウェブページや貼り付けた文に覆されうるため。使うときは `tool.forget: true`（dsh）か、Hermes のプロファイルの `config.yaml` の `memory.tsuzuki.forget: true` にする。ほかのホストは `POST /v1/memory/forget`。範囲は、1つのセッション、ある日時より前に保存したものすべて、すべて、の3つ。消えるのは、発言、そこから作った窓と事実、更新のリンク。SQLite のファイルと WAL も書き直すので、ファイルからも本文が消える。発言を1件ずつ消す機能は無い。対象外：ホスト自身のセッション履歴、保存先のコピーやバックアップ、ローカルのサーバーがすでに見たもの。手ですべて消すときは、ホストを止めて記憶のフォルダを消す（dsh は `$DSH_HOME/tsuzuki`、Hermes は `<プロファイル>/tsuzuki`、サイドカーは `config.json` の `dataDir`。セットアップなら `~/.tsuzuki/memory` で、`~/.tsuzuki/models` のモデルは別）。
 
 ## モデルのライセンス
 

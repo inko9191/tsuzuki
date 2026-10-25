@@ -54,6 +54,8 @@ export interface LlamaSpec {
   port?: number
   /** Further arguments; the sidecar adds `-m`, `--host 127.0.0.1`, `--port` and `--alias` itself. */
   args?: string[]
+  /** Log file of the server it starts (default: `llama-embedding.log` / `llama-chat.log` in the data folder). */
+  log?: string
 }
 
 /** EmbeddingGemma: 4 slots of 2,048 tokens (its input limit); one input may fill a slot. */
@@ -354,7 +356,7 @@ export async function start(config: SidecarConfig): Promise<{ close(): Promise<v
   const store = new MemoryStore(join(config.dataDir, 'memory.db'))
   const engine = config.embedding.engine ? new EngineServer(config.embedding.engine, config.dataDir)
     : config.embedding.llamacpp ? new LlamaServer(config.embedding.llamacpp, 8291, LLAMA_EMBEDDING_ARGS, 'tsuzuki-embeddinggemma',
-      join(config.dataDir, 'llama-embedding.log'))
+      config.embedding.llamacpp.log || join(config.dataDir, 'llama-embedding.log'))
       : null
   const embeddingUrl = engine ? engine.baseUrl : config.embedding.baseUrl
   const http = new HttpEmbedder({ ...config.embedding, ...(engine ? { baseUrl: engine.baseUrl, model: engine.model } : {}),
@@ -375,7 +377,7 @@ export async function start(config: SidecarConfig): Promise<{ close(): Promise<v
     },
   } : http
   const chatServer = config.chat.llamacpp ? new LlamaServer(config.chat.llamacpp, 8292, LLAMA_CHAT_ARGS, 'tsuzuki-chat',
-    join(config.dataDir, 'llama-chat.log')) : null
+    config.chat.llamacpp.log || join(config.dataDir, 'llama-chat.log')) : null
   const chatUrl = chatServer ? chatServer.baseUrl : config.chat.baseUrl
   const chatClient = chatUrl ? new OpenAIChat({ baseUrl: chatUrl, model: chatServer ? chatServer.model : config.chat.model,
     apiKey: config.chat.apiKey, timeoutMs: config.chat.timeoutMs,
@@ -429,8 +431,9 @@ export async function start(config: SidecarConfig): Promise<{ close(): Promise<v
     // While the embedding model is down, ask it every 30 s; the first answer starts the backfill (onEmbeddingRecovered).
     setInterval(() => { if (memory.embeddingState().ok === false) void memory.probeEmbedding() }, 30_000),
   ]
+  let tick = () => {}
   if (chat) {
-    const tick = () => { void ready.then(() => memory.drain(async () => (chatServer !== null || config.chat.server === 'llama.cpp') && await chat.busy()))
+    tick = () => { void ready.then(() => memory.drain(async () => (chatServer !== null || config.chat.server === 'llama.cpp') && await chat.busy()))
       .catch(e => log('warn', `facts: ${String(e)}`)) }
     tick()
     timers.push(setInterval(tick, config.facts.intervalSeconds * 1000))
@@ -515,6 +518,7 @@ export async function start(config: SidecarConfig): Promise<{ close(): Promise<v
       if (url.pathname === '/v1/memory/flush') {
         if (b.session) memory.maybeCloseSegment(String(b.session), true)
         else memory.closeAll()
+        tick()  // extract the closed segment's facts now, not at the next interval
         return send(res, 200, { ok: true })
       }
       if (url.pathname === '/v1/memory/forget') {

@@ -208,7 +208,7 @@ def _find_node(explicit: str) -> Optional[str]:
             path = Path(explicit).expanduser()
             return str(path) if _is_executable(path) else None
         return shutil.which(explicit)
-    for candidate in (_default_root() / "node/bin/node", Path.home() / ".hermes/node/bin/node"):
+    for candidate in (_default_root() / "node/bin/node", _default_root() / "node/node.exe", Path.home() / ".hermes/node/bin/node"):
         if _is_executable(candidate):
             return str(candidate)
     return shutil.which("node")

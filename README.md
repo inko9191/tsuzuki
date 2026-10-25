@@ -16,13 +16,13 @@ The repository also contains **an unofficial inference engine for EmbeddingGemma
 
 ## Quick start (macOS, Linux, Windows)
 
-You need **Node.js 22.19 or later** and **llama.cpp** (its `llama-server`):
+You need **Node.js 22 (22.19 or later) or 24+** and **llama.cpp** (its `llama-server`). For Hermes Agent, nothing else (the installer uses Hermes' own Python):
 
 | | Node.js | llama.cpp |
 |---|---|---|
 | macOS | `brew install node` | `brew install llama.cpp` |
 | Windows | `winget install OpenJS.NodeJS.LTS` | `winget install llama.cpp`, or a build from [its releases](https://github.com/ggml-org/llama.cpp/releases) |
-| Linux | [nodejs.org](https://nodejs.org) or your package manager | a build from [its releases](https://github.com/ggml-org/llama.cpp/releases), or `brew install llama.cpp` |
+| Linux | [nodejs.org](https://nodejs.org) (distribution packages are often too old) | a build from [its releases](https://github.com/ggml-org/llama.cpp/releases), or `brew install llama.cpp` |
 
 Then:
 
@@ -38,9 +38,11 @@ The script:
 3. connects the memory to **Hermes Agent** (quit Hermes first), or prepares the **HTTP sidecar** for any other app;
 4. checks, in a throwaway store, that a message from one conversation is recalled in another and that facts are extracted.
 
-After that there is nothing else to start: the memory starts llama.cpp itself when it first needs it, and leaves it running for next time (about 0.5 GB of memory for search, about 4 GB more with facts). The models go to `~/.tsuzuki/models`. Facts run on your machine even when your agent uses a cloud model.
+With Hermes there is nothing else to start: the memory and its models start by themselves when Hermes first needs them. For another app, start the memory server with the command setup prints at the end and keep it running. Either way, the memory starts llama.cpp itself and leaves it running for next time (about 0.5 GB of memory for search, about 4 GB more with facts); `node scripts/setup.mjs --stop` stops it. Facts appear about a minute after a conversation (at once after `POST /v1/memory/flush`), and they run on your machine even when your agent uses a cloud model.
 
-For DeepSeek Harness, your own model servers, Ollama, or this repository's Mac engine, see [Install (manual)](#install-manual). The setup script is written for Windows too, but so far it has been run only on macOS.
+Models go to `~/.tsuzuki/models`, the memory server's data to `~/.tsuzuki/memory` (Hermes: `<profile>/tsuzuki`). `node scripts/setup.mjs --help` lists the options (`--for hermes|app`, `--models`, `--llama-server`, `--no-facts`, `--yes`, ...); running it again is safe and continues an interrupted download.
+
+For DeepSeek Harness, your own model servers, Ollama, or this repository's Mac engine, see [Install (manual)](#install-manual). The setup script is written for Windows too (there, file permissions are those of your user folder), but so far it has been run only on macOS.
 
 ## What is in this repository
 
@@ -394,7 +396,7 @@ Full list: [`dsh-plugins/packages/tsuzuki/README.md`](dsh-plugins/packages/tsuzu
 - **Secret redaction** is on by default. Before anything is stored, embedded or sent to the fact model (queries too), these become `[REDACTED:KIND]`: API keys and tokens (OpenAI, Anthropic, GitHub, GitLab, Hugging Face, AWS, Google, Slack and Slack webhooks, Stripe, npm, SendGrid, Discord), JWTs, bearer and Basic credentials, credentials inside URLs, `password:`/`OPENAI_API_KEY=`/`token:`-style values (including Japanese labels such as パスワード, and "my password is …" when the value has a digit or a symbol), and Luhn-valid card numbers. It is pattern-based and favours precision. **Unusual secrets can slip through.** Do not paste secrets into chats and count on it.
 - **The sidecar.** It listens on `127.0.0.1` only and rejects requests that are not JSON, that carry a browser `Origin`, or that use a `Host` other than loopback (so web pages cannot use it). A config it writes itself, or the Hermes installer writes, has a random `token`: programs that cannot read that file (other users, sandboxes) are refused. A config without a `token` (written by hand, or before this version) lets any program on the machine use it. Another `host` than loopback requires a `token`.
 - **Files.** The memory folder is created readable by you only (0700), the SQLite file and its WAL as 0600, `config.json` as 0600. The embedding engine (`egemma-server`) applies the same Origin, Host and JSON checks.
-- **Forgetting.** The tools `memory_forget` (dsh) and `tsuzuki_forget` (Hermes) are **off by default**: the tool tells the model to state the exact scope and call it only after the user has confirmed it, but that is an instruction to the model, which a web page or pasted text could override. Turn them on with `tool.forget: true` (dsh) or `memory.tsuzuki.forget: true` in the Hermes profile's `config.yaml`. Other hosts use `POST /v1/memory/forget`. Three scopes: one session, everything captured before a date, or everything. The messages, the windows and facts made from them and their update links are deleted, and the SQLite file and its WAL are rewritten, so the text is gone from the file too. There is no per-message delete. Not covered: the host's own session history, copies or backups of the store, and what the local servers have already seen. To erase everything by hand, stop the host and delete the memory directory: dsh `$DSH_HOME/tsuzuki`; Hermes `<profile>/tsuzuki`; sidecar the folder that holds its `config.json`.
+- **Forgetting.** The tools `memory_forget` (dsh) and `tsuzuki_forget` (Hermes) are **off by default**: the tool tells the model to state the exact scope and call it only after the user has confirmed it, but that is an instruction to the model, which a web page or pasted text could override. Turn them on with `tool.forget: true` (dsh) or `memory.tsuzuki.forget: true` in the Hermes profile's `config.yaml`. Other hosts use `POST /v1/memory/forget`. Three scopes: one session, everything captured before a date, or everything. The messages, the windows and facts made from them and their update links are deleted, and the SQLite file and its WAL are rewritten, so the text is gone from the file too. There is no per-message delete. Not covered: the host's own session history, copies or backups of the store, and what the local servers have already seen. To erase everything by hand, stop the host and delete the memory directory: dsh `$DSH_HOME/tsuzuki`; Hermes `<profile>/tsuzuki`; sidecar the `dataDir` of its `config.json` (setup: `~/.tsuzuki/memory`; the models in `~/.tsuzuki/models` are separate).
 
 ## Model licenses
 

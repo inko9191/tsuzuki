@@ -142,8 +142,10 @@ def engine_missing(repo: Path) -> list[str]:
 
 
 def bundled_node(root: Path) -> Optional[Path]:
-    node = root / "node" / "bin" / "node"
-    return node if node.is_file() and os.access(node, os.X_OK) else None
+    for node in (root / "node" / "bin" / "node", root / "node" / "node.exe"):  # macOS/Linux, Windows
+        if node.is_file() and os.access(node, os.X_OK):
+            return node
+    return None
 
 
 def is_loopback(url: str) -> bool:
