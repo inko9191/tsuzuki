@@ -22,7 +22,7 @@ plugins="$(cd "$here/.." && pwd)"
 engine="$(cd "$plugins/.." && pwd)"
 app="/Applications/DeepSeek Harness.app"
 dsh="$app/Contents/Resources/runtime/cli/bin/dsh"
-profile="$HOME/.dsh/profiles/desktop"
+profile="${DSH_HOME:-$HOME/.dsh}/profiles/desktop"
 if pgrep -f "$app/Contents/MacOS/DeepSeek Harness" > /dev/null; then echo "Quit DeepSeek Harness first." >&2; exit 1; fi
 [ -x "$dsh" ] || { echo "app CLI not found: $dsh" >&2; exit 1; }
 [ -d "$profile" ] || { echo "desktop profile not found: $profile" >&2; exit 1; }
@@ -59,6 +59,8 @@ else
     modelName: embeddinggemma-300m
     port: 8299"
 fi
+# A new profile's patch file is a flow-style empty list (`[]`); block rows cannot follow it.
+sed -i '' '/^[[:space:]]*\[\][[:space:]]*$/d' "$profile/cordis.patch.yml"
 cat >> "$profile/cordis.patch.yml" <<YAML
 
 # --- memory (dsh-tsuzuki), added $stamp; backup: cordis.patch.yml.bak-memory-$stamp ---
@@ -69,4 +71,4 @@ $embedding_row
       baseUrl: http://127.0.0.1:8080/v1
 YAML
 echo "Installed. Start DeepSeek Harness; memory data goes to ~/.dsh/tsuzuki."
-echo "Undo: restore $profile/cordis.patch.yml.bak-memory-$stamp and package.json.bak-memory-$stamp, then '$dsh plugin --profile desktop remove dsh-tsuzuki'."
+echo "Undo: restore $profile/cordis.patch.yml.bak-memory-$stamp and package.json.bak-memory-$stamp, then '$dsh plugin --profile desktop remove dsh-tsuzuki dsh-text-embeddings $(basename "$provider" -0.1.0.tgz)'."

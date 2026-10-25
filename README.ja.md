@@ -204,7 +204,7 @@ dsh 用のパッケージが `dsh-plugins/dist/*.tgz` に、サイドカーが `
 **Mac（評価した経路）**：リポジトリのルートで実行する。
 
 ```bash
-uv venv .venv --python 3.13
+uv venv .venv --python 3.13   # Python 3.13 が無ければ uv がダウンロードする
 uv pip install --python .venv/bin/python -r requirements-lock.txt
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DPython_EXECUTABLE="$PWD/.venv/bin/python"
 cmake --build build -j 8
@@ -239,7 +239,7 @@ ollama pull embeddinggemma
 すでに動いているプロファイルか、同梱のテンプレート（`web`、`headless`、`acp`、`sdk`、`sdk-minimal`）に入れる。ほかの新しい名前だと、`dsh-base` しか読み込まない空のプロファイルになるので、先にテンプレートから作る。
 
 ```bash
-dsh --profile <名前> --from-default-profile headless --dump-config > /dev/null   # 新しい名前のときだけ。web、acp、sdk でもよい
+dsh --profile <名前> --from-default-profile headless --dump-config > /dev/null   # 新しい名前のときだけ。web、acp、sdk、sdk-minimal でもよい
 ```
 
 `dsh plugin` はプロファイルのフォルダの中で pnpm を動かすので、**絶対パス**で渡す。リポジトリのルートで：
@@ -249,7 +249,7 @@ dist="$PWD/dsh-plugins/dist"
 dsh plugin --profile <名前> add "$dist/dsh-text-embeddings-0.1.0.tgz" "$dist/dsh-text-embeddings-tsuzuki-0.1.0.tgz" "$dist/dsh-tsuzuki-0.1.0.tgz"
 ```
 
-次に、`$DSH_HOME/profiles/<名前>/cordis.patch.yml`（`DSH_HOME` を設定していなければ `~/.dsh/profiles/<名前>/`）に行を足す。patch は行の `config` を丸ごと置き換えるので、要る設定はすべて書く。
+次に、`$DSH_HOME/profiles/<名前>/cordis.patch.yml`（`DSH_HOME` を設定していなければ `~/.dsh/profiles/<名前>/`）に行を足す。新しいプロファイルでは、このファイルに `[]`（空のリスト）しか無い。`[]` を行で置き換えること（後ろに足すと dsh がファイルを読めない）。patch は行の `config` を丸ごと置き換えるので、要る設定はすべて書く。
 
 ```yaml
 - id: text-embeddings-tsuzuki
@@ -305,9 +305,9 @@ python3 integrations/hermes/install.py <プロファイル>            # Hermes 
 
 スクリプトは、プロファイルごとに `config.yaml` をバックアップし、プロバイダを `<プロファイル>/plugins/tsuzuki` にコピーし、`memory.provider: tsuzuki` を設定し、`<プロファイル>/tsuzuki/config.json` を書く（あれば残す）。サイドカーのポートはプロファイルごとに違う（`8297` ＋ データフォルダのハッシュ。`8297`〜`8796`）ので、記憶は混ざらない。Hermes を起動し直して、`hermes memory status` で確かめる。
 
-**本当に動いているかの確かめ方**：`hermes memory status` は、Node とサイドカーのファイルがあるかしか見ない。1 回会話したあとで、`curl -s http://127.0.0.1:<ポート>/health`（ポートは `config.json`）が、`embedding.ok: true`、`stats.turns` が 0 より大きい、数秒後に `stats.unindexed` が 0、を示すこと。
+**本当に動いているかの確かめ方**：`hermes memory status` は、Node とサイドカーのファイルがあるかしか見ない。1 回会話したあとで、`curl -s -H "Authorization: Bearer <トークン>" http://127.0.0.1:<ポート>/health`（ポートとトークンは `config.json`）が、`embedding.ok: true`、`stats.turns` が 0 より大きい、数秒後に `stats.unindexed` が 0、を示すこと。
 
-**あとで `config.json` を変えたとき**：サイドカーは Hermes を終了しても動き続け、起動したときにだけ `config.json` を読む。止めてから（pid は `<プロファイル>/tsuzuki/sidecar.log`、または `lsof -t -iTCP:<ポート> -sTCP:LISTEN`）、Hermes を起動し直す。
+**あとで `config.json` を変えたとき**：サイドカーは Hermes を終了しても動き続け、起動したときにだけ `config.json` を読む。止めてから（`kill $(lsof -t -iTCP:<ポート> -sTCP:LISTEN)`）、Hermes を起動し直す。
 
 詳しくは [`integrations/hermes/README.md`](integrations/hermes/README.md)。
 

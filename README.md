@@ -204,7 +204,7 @@ This writes the dsh packages to `dsh-plugins/dist/*.tgz`, and the sidecar to `ds
 **Mac (tested path).** From the repository root:
 
 ```bash
-uv venv .venv --python 3.13
+uv venv .venv --python 3.13   # uv downloads Python 3.13 if it is not installed
 uv pip install --python .venv/bin/python -r requirements-lock.txt
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DPython_EXECUTABLE="$PWD/.venv/bin/python"
 cmake --build build -j 8
@@ -239,7 +239,7 @@ ollama pull embeddinggemma
 Install into a profile that already runs, or one of the shipped templates (`web`, `headless`, `acp`, `sdk`, `sdk-minimal`). Any other new name gives an empty profile that loads only `dsh-base`, so create a new profile from a template first:
 
 ```bash
-dsh --profile <name> --from-default-profile headless --dump-config > /dev/null   # only for a new name; or web, acp, sdk
+dsh --profile <name> --from-default-profile headless --dump-config > /dev/null   # only for a new name; or web, acp, sdk, sdk-minimal
 ```
 
 `dsh plugin` runs pnpm inside the profile directory, so pass **absolute** paths. From the repository root:
@@ -249,7 +249,7 @@ dist="$PWD/dsh-plugins/dist"
 dsh plugin --profile <name> add "$dist/dsh-text-embeddings-0.1.0.tgz" "$dist/dsh-text-embeddings-tsuzuki-0.1.0.tgz" "$dist/dsh-tsuzuki-0.1.0.tgz"
 ```
 
-Then add rows to `$DSH_HOME/profiles/<name>/cordis.patch.yml` (`~/.dsh/profiles/<name>/` unless you set `DSH_HOME`). A patch replaces the row's whole `config`, so write every setting you need:
+Then add rows to `$DSH_HOME/profiles/<name>/cordis.patch.yml` (`~/.dsh/profiles/<name>/` unless you set `DSH_HOME`). In a new profile that file holds only `[]` (an empty list): replace the `[]` with the rows, or dsh cannot read the file. A patch replaces the row's whole `config`, so write every setting you need:
 
 ```yaml
 - id: text-embeddings-tsuzuki
@@ -305,9 +305,9 @@ python3 integrations/hermes/install.py <profile>            # --home <dir> when 
 
 For each profile, the script backs up `config.yaml`, copies the provider to `<profile>/plugins/tsuzuki`, sets `memory.provider: tsuzuki`, and writes `<profile>/tsuzuki/config.json` (kept if it exists). Each profile gets its own sidecar port (`8297` + a hash of the data directory, so `8297`–`8796`), so profiles do not share memory. Restart Hermes, then run `hermes memory status`.
 
-**Check that memory really works.** `hermes memory status` only checks that Node and the sidecar script exist. After one conversation, `curl -s http://127.0.0.1:<port>/health` (the port is in `config.json`) must show `embedding.ok: true`, `stats.turns` above 0, and `stats.unindexed` back at 0 a few seconds later.
+**Check that memory really works.** `hermes memory status` only checks that Node and the sidecar script exist. After one conversation, `curl -s -H "Authorization: Bearer <token>" http://127.0.0.1:<port>/health` (the port and the token are in `config.json`) must show `embedding.ok: true`, `stats.turns` above 0, and `stats.unindexed` back at 0 a few seconds later.
 
-**Changing `config.json` later.** The sidecar keeps running after Hermes quits and reads `config.json` only when it starts. Stop it (the pid is in `<profile>/tsuzuki/sidecar.log`, or `lsof -t -iTCP:<port> -sTCP:LISTEN`), then start Hermes again.
+**Changing `config.json` later.** The sidecar keeps running after Hermes quits and reads `config.json` only when it starts. Stop it (`kill $(lsof -t -iTCP:<port> -sTCP:LISTEN)`), then start Hermes again.
 
 Details (in Japanese): [`integrations/hermes/README.md`](integrations/hermes/README.md).
 

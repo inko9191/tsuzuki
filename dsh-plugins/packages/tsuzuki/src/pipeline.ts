@@ -301,7 +301,7 @@ export function sessionOrder(turns: readonly Turn[]): string[] {
  * (The evaluations rendered message text unchanged; single-line messages still are.)
  */
 export function excerpt(text: string): string {
-  return text.replace(/<(\/?)(memory)/gi, '‹$1$2').replace(/\r\n?/g, '\n').replace(/\n/g, '\n    ')
+  return text.replace(/<(\/?)(memory)/gi, '‹$1$2').replace(/\r\n?|[\u2028\u2029]/g, '\n').replace(/\n/g, '\n    ')
 }
 
 /** Date-ordered rendering (U1 S/T/V): a Date line opens every session block; notes follow their message. */
