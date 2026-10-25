@@ -143,7 +143,7 @@ class InstallTests(unittest.TestCase):
         home = self.profile("lc")
         out = self.run_main("--embedding", "llamacpp", "lc")
         config = json.loads((home / "tsuzuki" / "config.json").read_text())
-        self.assertEqual(config["embedding"], {"baseUrl": "http://127.0.0.1:8081/v1", "model": "embeddinggemma"})
+        self.assertEqual(config["embedding"], {"baseUrl": "http://127.0.0.1:8291/v1", "model": "embeddinggemma"})
         self.assertIn("llama.cpp", out)
         other = self.profile("lc2")
         self.run_main("--embedding", "llamacpp", "--embedding-url", "http://localhost:9000/v1", "lc2")
@@ -151,7 +151,7 @@ class InstallTests(unittest.TestCase):
                          "http://localhost:9000/v1")
         self.profile("far")
         with self.assertRaises(SystemExit), contextlib.redirect_stdout(io.StringIO()):
-            install.main(["--home", str(self.root), "--embedding", "llamacpp", "--embedding-url", "http://192.168.1.5:8081/v1", "far"])
+            install.main(["--home", str(self.root), "--embedding", "llamacpp", "--embedding-url", "http://192.168.1.5:8291/v1", "far"])
         self.assertFalse((install.profile_home("far", self.root) / "tsuzuki").exists())
 
     def test_embeddings_fall_back_to_ollama_without_the_engine(self) -> None:

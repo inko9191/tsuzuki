@@ -15,8 +15,8 @@ import { homedir } from 'node:os'
 import { dirname, join, sep } from 'node:path'
 import { HttpEmbedder, EMBEDDINGGEMMA_PREFIXES, InputTooLongError, ensureOllamaModel, MODEL_NOTICES, ollamaModels } from './embedding-http.ts'
 import { recallText } from './format.ts'
-import { OpenAIChat, LLAMA_CPP_EXTRA } from './llm.ts'
-import { EmbeddingTimeoutError, EmbeddingUnavailableError, Memory, describe, forgetScope, within } from './memory.ts'
+import { ChatUnavailableError, OpenAIChat, LLAMA_CPP_EXTRA } from './llm.ts'
+import { EmbeddingTimeoutError, EmbeddingUnavailableError, Memory, describe, forgetScope, within, type ChatModel } from './memory.ts'
 import { MemoryStore, type StoredTurn } from './store.ts'
 
 export const VERSION = '0.1.0'
@@ -32,13 +32,34 @@ export interface SidecarConfig {
     /** Limit of a query embedding (recall, search); storing waits up to 60 s. */
     queryTimeoutMs: number,
     /** Start this repository's egemma-server (Metal engine) on demand instead of using `baseUrl`. */
-    engine?: { engineRoot: string, modelDir: string, modelName: string, port: number, python?: string } }
-  chat: { baseUrl: string, model: string, apiKey: string, server: 'llama.cpp' | 'openai', timeoutMs: number, rerankTimeoutMs: number }
+    engine?: { engineRoot: string, modelDir: string, modelName: string, port: number, python?: string },
+    /** Start llama.cpp's llama-server with the EmbeddingGemma GGUF on demand instead of using `baseUrl`. */
+    llamacpp?: LlamaSpec }
+  chat: { baseUrl: string, model: string, apiKey: string, server: 'llama.cpp' | 'openai', timeoutMs: number, rerankTimeoutMs: number,
+    /** Start llama.cpp's llama-server with this chat model (GGUF) on demand instead of using `baseUrl`. */
+    llamacpp?: LlamaSpec }
   recall: { budgetTokens: number }
   search: { budgetTokens: number, rerank: boolean }
   facts: { segmentTokens: number, segmentIdleMinutes: number, intervalSeconds: number, updateLinks: boolean }
   capture: { redactSecrets: boolean }
 }
+
+/** A llama-server the sidecar starts when it needs it and leaves running (other hosts may share it). */
+export interface LlamaSpec {
+  /** The model file (GGUF). */
+  model: string
+  /** The llama-server executable: a path, or a name found on PATH (default `llama-server`). */
+  binary?: string
+  /** Loopback port (default 8291 for embeddings, 8292 for chat). */
+  port?: number
+  /** Further arguments; the sidecar adds `-m`, `--host 127.0.0.1`, `--port` and `--alias` itself. */
+  args?: string[]
+}
+
+/** EmbeddingGemma: 4 slots of 2,048 tokens (its input limit); one input may fill a slot. */
+export const LLAMA_EMBEDDING_ARGS = ['--embedding', '-c', '8192', '-np', '4', '-b', '2048', '-ub', '2048']
+/** Fact extraction and update checks: one slot of 8,192 tokens (a segment is ~2,500 tokens plus the reply). */
+export const LLAMA_CHAT_ARGS = ['-c', '8192', '-np', '1']
 
 export function defaults(dataDir: string): SidecarConfig {
   return {
@@ -134,6 +155,10 @@ export class EngineServer {
     return `http://127.0.0.1:${this.spec.port}/v1`
   }
 
+  get model(): string {
+    return this.spec.modelName
+  }
+
   private async health(): Promise<{ status?: string, model?: string } | null> {
     try {
       const r = await fetch(`http://127.0.0.1:${this.spec.port}/health`, { signal: AbortSignal.timeout(2000) })
@@ -210,6 +235,97 @@ const LOOPBACK = new Set(['127.0.0.1', 'localhost', '::1'])
  * page arrives with a foreign `Host`, and only JSON POSTs are accepted (a browser can send `text/plain` without a
  * CORS preflight, never `application/json`).
  */
+/**
+ * llama.cpp's llama-server, started on demand like egemma-server and left running when the sidecar stops (another
+ * sidecar may use it; the next start reuses it). `--alias` names it, so a different server on the port is not used.
+ */
+export class LlamaServer {
+  private starting: Promise<void> | null = null
+  private checked = 0
+  private readonly port: number
+
+  constructor(private readonly spec: LlamaSpec, defaultPort: number, private readonly defaultArgs: readonly string[],
+    readonly model: string, private readonly logPath: string) {
+    this.port = spec.port ?? defaultPort
+  }
+
+  get baseUrl(): string {
+    return `http://127.0.0.1:${this.port}/v1`
+  }
+
+  /** 'ready' (our model answers), 'loading', 'other' (another server holds the port), or null (nothing answers). */
+  private async probe(): Promise<'ready' | 'loading' | 'other' | null> {
+    try {
+      const r = await fetch(`http://127.0.0.1:${this.port}/health`, { signal: AbortSignal.timeout(2000) })
+      await r.body?.cancel()
+      if (r.status === 503) return 'loading'
+      if (!r.ok) return 'other'
+      const m = await (await fetch(`${this.baseUrl}/models`, { signal: AbortSignal.timeout(2000) })).json() as { data?: Array<{ id?: string }> }
+      return m.data?.some(d => d.id === this.model) ? 'ready' : 'other'
+    } catch {
+      return null
+    }
+  }
+
+  ensure(signal?: AbortSignal): Promise<void> {
+    if (Date.now() - this.checked < 5000) return Promise.resolve()
+    if (!this.starting) {
+      const run = this.start()
+      this.starting = run.finally(() => { this.starting = null })
+      this.starting.catch(() => {})  // a caller that gave up does not wait; an unhandled failure would end Node
+    }
+    return abortable(this.starting, signal)
+  }
+
+  private async start(): Promise<void> {
+    let state = await this.probe()
+    if (state === 'other') throw new Error(`port ${this.port} is used by another server, not llama-server "${this.model}"; set another "port"`)
+    let failure: Error | null = null
+    if (state === null) {
+      if (!existsSync(this.spec.model)) throw new Error(`model file ${this.spec.model} does not exist (run node scripts/setup.mjs)`)
+      const binary = this.spec.binary || 'llama-server'
+      const out = openSync(this.logPath, 'a', 0o600)
+      try {
+        const child = spawn(binary, ['-m', this.spec.model, ...(this.spec.args ?? this.defaultArgs), '--host', '127.0.0.1',
+          '--port', String(this.port), '--alias', this.model], { detached: true, stdio: ['ignore', out, out], windowsHide: true })
+        child.once('error', error => { failure ??= new Error(`cannot start llama-server (${binary}): ${error.message}`) })
+        child.once('exit', (code, sig) => { failure ??= new Error(`llama-server exited (${code ?? sig}) before it was ready; see ${this.logPath}`) })
+        child.unref()
+        if (child.pid) log('info', `started llama-server (pid ${child.pid}) for ${this.model} on port ${this.port}`)
+      } finally {
+        closeSync(out)
+      }
+    }
+    // A 3 GB model from a slow disk can take minutes to load.
+    for (let i = 0; i < 600 && state !== 'ready'; i++) {
+      if (state === 'other') throw new Error(`port ${this.port} is used by another server, not llama-server "${this.model}"`)
+      if (failure && state === null) throw failure
+      await new Promise(r => setTimeout(r, 500))
+      state = await this.probe()
+    }
+    if (state !== 'ready') throw new Error(`llama-server "${this.model}" not ready after 300 s (see ${this.logPath})`)
+    this.checked = Date.now()
+  }
+}
+
+/** The chat model behind a started-on-demand llama-server; a server that cannot start reads as unreachable (facts wait). */
+function managedChat(inner: OpenAIChat, server: LlamaServer): ChatModel & { busy(): Promise<boolean> } {
+  return {
+    baseUrl: inner.baseUrl,
+    async complete(messages, options) {
+      try {
+        await server.ensure(options.signal)
+      } catch (error) {
+        if (options.signal?.aborted) throw error
+        throw new ChatUnavailableError(`cannot start the chat model: ${describe(error)}`)
+      }
+      return inner.complete(messages, options)
+    },
+    reachable: (signal?: AbortSignal) => inner.reachable(signal),
+    busy: () => inner.busy(),
+  }
+}
+
 /** Constant-time comparison (of digests, so the lengths are equal). */
 function sameSecret(given: string, expected: string): boolean {
   const digest = (v: string) => createHash('sha256').update(v).digest()
@@ -236,9 +352,12 @@ export async function start(config: SidecarConfig): Promise<{ close(): Promise<v
   mkdirSync(config.dataDir, { recursive: true, mode: 0o700 })
   const dataDir = realpathSync(config.dataDir)
   const store = new MemoryStore(join(config.dataDir, 'memory.db'))
-  const engine = config.embedding.engine ? new EngineServer(config.embedding.engine, config.dataDir) : null
+  const engine = config.embedding.engine ? new EngineServer(config.embedding.engine, config.dataDir)
+    : config.embedding.llamacpp ? new LlamaServer(config.embedding.llamacpp, 8291, LLAMA_EMBEDDING_ARGS, 'tsuzuki-embeddinggemma',
+      join(config.dataDir, 'llama-embedding.log'))
+      : null
   const embeddingUrl = engine ? engine.baseUrl : config.embedding.baseUrl
-  const http = new HttpEmbedder({ ...config.embedding, ...(engine ? { baseUrl: engine.baseUrl, model: config.embedding.engine!.modelName } : {}),
+  const http = new HttpEmbedder({ ...config.embedding, ...(engine ? { baseUrl: engine.baseUrl, model: engine.model } : {}),
     timeoutMs: 60000, batch: 32 })
   const embedder = engine ? {
     model: () => http.model(),
@@ -255,9 +374,13 @@ export async function start(config: SidecarConfig): Promise<{ close(): Promise<v
       }
     },
   } : http
-  const chat = config.chat.baseUrl ? new OpenAIChat({ baseUrl: config.chat.baseUrl, model: config.chat.model,
+  const chatServer = config.chat.llamacpp ? new LlamaServer(config.chat.llamacpp, 8292, LLAMA_CHAT_ARGS, 'tsuzuki-chat',
+    join(config.dataDir, 'llama-chat.log')) : null
+  const chatUrl = chatServer ? chatServer.baseUrl : config.chat.baseUrl
+  const chatClient = chatUrl ? new OpenAIChat({ baseUrl: chatUrl, model: chatServer ? chatServer.model : config.chat.model,
     apiKey: config.chat.apiKey, timeoutMs: config.chat.timeoutMs,
-    extraBody: config.chat.server === 'llama.cpp' ? LLAMA_CPP_EXTRA : {} }) : null
+    extraBody: chatServer || config.chat.server === 'llama.cpp' ? LLAMA_CPP_EXTRA : {} }) : null
+  const chat = chatClient && chatServer ? managedChat(chatClient, chatServer) : chatClient
   let ready: Promise<void> = Promise.resolve()
   const memory = new Memory(store, embedder, chat, {
     budgetTokens: config.recall.budgetTokens, segmentTokens: config.facts.segmentTokens,
@@ -307,7 +430,7 @@ export async function start(config: SidecarConfig): Promise<{ close(): Promise<v
     setInterval(() => { if (memory.embeddingState().ok === false) void memory.probeEmbedding() }, 30_000),
   ]
   if (chat) {
-    const tick = () => { void ready.then(() => memory.drain(async () => config.chat.server === 'llama.cpp' && await chat.busy()))
+    const tick = () => { void ready.then(() => memory.drain(async () => (chatServer !== null || config.chat.server === 'llama.cpp') && await chat.busy()))
       .catch(e => log('warn', `facts: ${String(e)}`)) }
     tick()
     timers.push(setInterval(tick, config.facts.intervalSeconds * 1000))
@@ -343,7 +466,7 @@ export async function start(config: SidecarConfig): Promise<{ close(): Promise<v
         const state = memory.status()
         return send(res, 200, { status: 'ok', version: VERSION, dataDir, stats: { ...memory.stats(), unindexed: state.unindexed },
           embedding: { model: embedder.model(), url: embeddingUrl, ...state.embedding },
-          chat: chat ? { url: config.chat.baseUrl, ...state.chat } : null })
+          chat: chat ? { url: chatUrl, ...state.chat } : null })
       }
       if (req.method !== 'POST') return send(res, 404, { error: 'not found' })
       const b = await body(req)

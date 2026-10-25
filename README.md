@@ -14,6 +14,34 @@ It works with [DeepSeek Harness (dsh)](https://github.com/deepseek-ai/deepseek-h
 
 The repository also contains **an unofficial inference engine for EmbeddingGemma models (not affiliated with Google)**, written in C++/Metal for Apple silicon.
 
+## Quick start (macOS, Linux, Windows)
+
+You need **Node.js 22.19 or later** and **llama.cpp** (its `llama-server`):
+
+| | Node.js | llama.cpp |
+|---|---|---|
+| macOS | `brew install node` | `brew install llama.cpp` |
+| Windows | `winget install OpenJS.NodeJS.LTS` | `winget install llama.cpp`, or a build from [its releases](https://github.com/ggml-org/llama.cpp/releases) |
+| Linux | [nodejs.org](https://nodejs.org) or your package manager | a build from [its releases](https://github.com/ggml-org/llama.cpp/releases), or `brew install llama.cpp` |
+
+Then:
+
+```bash
+git clone https://github.com/inko9191/tsuzuki
+cd tsuzuki
+node scripts/setup.mjs
+```
+
+The script:
+1. builds the plugins;
+2. downloads two models, asking first: **EmbeddingGemma 300m** (334 MB, for search; under the [Gemma Terms of Use](https://ai.google.dev/gemma/terms)) and **Gemma 4 E2B** (3.35 GB, Apache 2.0; optional, for pulling facts out of past conversations, which keeps recall better as conversations pile up);
+3. connects the memory to **Hermes Agent** (quit Hermes first), or prepares the **HTTP sidecar** for any other app;
+4. checks, in a throwaway store, that a message from one conversation is recalled in another and that facts are extracted.
+
+After that there is nothing else to start: the memory starts llama.cpp itself when it first needs it, and leaves it running for next time (about 0.5 GB of memory for search, about 4 GB more with facts). The models go to `~/.tsuzuki/models`. Facts run on your machine even when your agent uses a cloud model.
+
+For DeepSeek Harness, your own model servers, Ollama, or this repository's Mac engine, see [Install (manual)](#install-manual). The setup script is written for Windows too, but so far it has been run only on macOS.
+
 ## What is in this repository
 
 | Part | Path | What it does |
@@ -186,7 +214,7 @@ This public repository starts from a fresh snapshot (its first commit); later co
   - **Any other machine**: llama.cpp's `llama-server` with the EmbeddingGemma 300m GGUF (checked against the engine), or [Ollama](https://ollama.com) with `embeddinggemma` (not measured).
 - **For Hermes Agent**: Hermes' bundled Node (`~/.hermes/node/bin/node`) or another Node as above.
 
-## Install
+## Install (manual)
 
 ### 1. Build the plugins (all hosts)
 

@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer, request } from 'node:http'
 import { createServer as createTcpServer } from 'node:net'
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { isAbsolute, join } from 'node:path'
@@ -574,5 +574,45 @@ test('a new config gets a random token and private files; bodies over the limit 
   } finally {
     await s.close()
     await emb.close()
+  }
+})
+
+test('embedding.llamacpp and chat.llamacpp: the sidecar starts llama-server on demand, once, and uses it', async () => {
+  const { unlinkSync } = await import('node:fs')
+  const dir = mkdtempSync(join(tmpdir(), 'sidecar-'))
+  const fake = fileURLToPath(new URL('./fixtures/fake-llama-server.mjs', import.meta.url))
+  const binary = join(dir, 'llama-server')
+  writeFileSync(binary, `#!/bin/sh\nexec "${process.execPath}" "${fake}" "$@"\n`)
+  chmodSync(binary, 0o755)
+  writeFileSync(join(dir, 'model.gguf'), 'x')
+  const ports = []
+  for (let k = 0; k < 2; k++) {
+    const s = createTcpServer(); await new Promise(r => s.listen(0, '127.0.0.1', r)); ports.push(s.address().port); await new Promise(r => s.close(r))
+  }
+  const log = join(dir, 'argv.jsonl')
+  process.env.FAKE_LLAMA_LOG = log
+  const base = defaults(join(dir, 'data'))
+  const s = await start({ ...base, port: 0,
+    embedding: { ...base.embedding, autoPull: false, llamacpp: { model: join(dir, 'model.gguf'), binary, port: ports[0] } },
+    chat: { ...base.chat, llamacpp: { model: join(dir, 'model.gguf'), binary, port: ports[1], args: ['-c', '4096'] } },
+    facts: { ...base.facts, intervalSeconds: 1 } })
+  try {
+    await post(s.port, '/v1/memory/messages', { session: 'a', messages: [{ role: 'user', text: 'The quokka locker is in hall C.' }] })
+    for (let i = 0; i < 100 && (await health(s.port)).stats.unindexed > 0; i++) await new Promise(r => setTimeout(r, 100))
+    const r = await post(s.port, '/v1/memory/recall', { query: 'quokka locker', session: 'b' })
+    assert.match(r.text, /quokka locker/)
+    const started = readFileSync(log, 'utf8').trim().split('\n').map(l => JSON.parse(l))
+    const embed = started.find(a => a.includes('tsuzuki-embeddinggemma'))
+    assert.ok(embed.includes('--embedding') && embed.includes(String(ports[0])) && embed.includes('127.0.0.1'), JSON.stringify(embed))
+    await post(s.port, '/v1/memory/flush', { session: 'a' })
+    for (let i = 0; i < 50 && !readFileSync(log, 'utf8').includes('tsuzuki-chat'); i++) await new Promise(r => setTimeout(r, 200))
+    const chat = readFileSync(log, 'utf8').trim().split('\n').map(l => JSON.parse(l)).find(a => a.includes('tsuzuki-chat'))
+    assert.ok(chat && chat.includes('4096') && chat.includes(String(ports[1])), 'the chat server was started with its own args')
+    assert.equal(started.filter(a => a.includes('tsuzuki-embeddinggemma')).length, 1, 'started once')
+  } finally {
+    await s.close()
+    delete process.env.FAKE_LLAMA_LOG
+    for (const port of ports) spawnSync('sh', ['-c', `kill $(lsof -t -iTCP:${port} -sTCP:LISTEN) 2>/dev/null; true`])
+    try { unlinkSync(binary) } catch {}
   }
 })

@@ -184,6 +184,8 @@ start it again. Every route is refused for browsers (any `Origin`), for a foreig
 gets a random `token`, and the file is readable by the user only (0600); send `Authorization: Bearer <token>`. A body
 that is not a JSON object is a `400`; one over 8 MB is a `413`. Recalled message text cannot close or open the
 `<memory>` block, and its continuation lines are indented, so a stored message cannot pose as another excerpt.
+Instead of an embedding or chat `baseUrl`, the sidecar can start llama.cpp itself: `"embedding": {"llamacpp": {"model": "<EmbeddingGemma GGUF>"}}` and `"chat": {"llamacpp": {"model": "<chat GGUF>"}}` (optional `binary`, default `llama-server` on `PATH`; `port`, default 8291 and 8292; `args`). It starts each one when it is first needed (`--alias tsuzuki-embeddinggemma` / `tsuzuki-chat`, so another server on the port is never used) and leaves it running for the next start. `node scripts/setup.mjs` writes these settings.
+
 JSON API:
 
 | | request | response |

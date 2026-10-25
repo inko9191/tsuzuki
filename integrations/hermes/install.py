@@ -14,7 +14,7 @@ Per profile: back up config.yaml, copy the plugin to <profile>/plugins/tsuzuki, 
 - embeddings (``--embedding``, default ``auto``): this repository's EmbeddingGemma 300m engine (started on demand on
   port 8299) when it is built here (step 2 of the README); otherwise Ollama's ``embeddinggemma`` on 127.0.0.1:11434,
   and the script says so. ``llamacpp``: a llama.cpp ``llama-server --embedding`` with the EmbeddingGemma GGUF
-  (default http://127.0.0.1:8081/v1). ``--embedding-url`` sets the endpoint for ``ollama`` or ``llamacpp``; it must be
+  (default http://127.0.0.1:8291/v1). ``--embedding-url`` sets the endpoint for ``ollama`` or ``llamacpp``; it must be
   on this machine (text is sent there);
 - facts: the profile's own model endpoint (``model.base_url``), but only when it is on this machine (loopback).
   Conversation text is sent there; a remote endpoint needs ``--allow-remote-chat``. ``--no-chat`` turns facts off.
@@ -43,7 +43,7 @@ SERVER_JS = REPO / "dsh-plugins" / "packages" / "tsuzuki" / "lib" / "server.js"
 DEFAULT_PORT = 8297
 ENGINE_PORT = 8299
 OLLAMA_URL = "http://127.0.0.1:11434/v1"
-LLAMACPP_URL = "http://127.0.0.1:8081/v1"
+LLAMACPP_URL = "http://127.0.0.1:8291/v1"
 LOOPBACK = {"127.0.0.1", "localhost", "::1"}
 
 

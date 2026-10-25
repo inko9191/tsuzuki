@@ -8,14 +8,14 @@
 #   ollama:           embeddings from Ollama's `embeddinggemma` (run `ollama pull embeddinggemma` first;
 #                     EmbeddingGemma 300m is under the Gemma Terms of Use: ai.google.dev/gemma/terms).
 #   llamacpp [URL]:   embeddings from llama.cpp's `llama-server --embedding` with the EmbeddingGemma 300m GGUF
-#                     (default URL http://127.0.0.1:8081/v1; see the README).
+#                     (default URL http://127.0.0.1:8291/v1; see the README).
 # Facts and rerank use the desktop agent's local OpenAI-compatible server (default http://127.0.0.1:8080/v1).
 set -euo pipefail
 backend="${1:-engine}"
 embed_url="${2:-}"
 case "$backend" in engine|ollama|llamacpp) ;; *) echo "unknown backend: $backend (engine, ollama or llamacpp)" >&2; exit 1;; esac
 [ "$backend" = ollama ] && embed_url="${embed_url:-http://127.0.0.1:11434/v1}"
-[ "$backend" = llamacpp ] && embed_url="${embed_url:-http://127.0.0.1:8081/v1}"
+[ "$backend" = llamacpp ] && embed_url="${embed_url:-http://127.0.0.1:8291/v1}"
 case "$embed_url" in ""|http://127.0.0.1:*|http://localhost:*|http://\[::1\]:*) ;; *) echo "the embedding URL must be on this machine: $embed_url" >&2; exit 1;; esac
 here="$(cd "$(dirname "$0")" && pwd)"
 plugins="$(cd "$here/.." && pwd)"

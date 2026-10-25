@@ -14,6 +14,34 @@
 
 このリポジトリには、**EmbeddingGemma のモデルを動かす非公式の推論エンジン（Google とは無関係）**も入っている。Apple シリコン向けの C++/Metal 実装。
 
+## すぐに使う（macOS、Linux、Windows）
+
+**Node.js 22.19 以上**と **llama.cpp**（の `llama-server`）が要る。
+
+| | Node.js | llama.cpp |
+|---|---|---|
+| macOS | `brew install node` | `brew install llama.cpp` |
+| Windows | `winget install OpenJS.NodeJS.LTS` | `winget install llama.cpp`、または[リリース](https://github.com/ggml-org/llama.cpp/releases)のビルド |
+| Linux | [nodejs.org](https://nodejs.org) かパッケージマネージャ | [リリース](https://github.com/ggml-org/llama.cpp/releases)のビルド、または `brew install llama.cpp` |
+
+あとは：
+
+```bash
+git clone https://github.com/inko9191/tsuzuki
+cd tsuzuki
+node scripts/setup.mjs
+```
+
+スクリプトがすること：
+1. プラグインをビルドする。
+2. モデルを 2 つ、確認してからダウンロードする。**EmbeddingGemma 300m**（334 MB、検索用。[Gemma の利用規約](https://ai.google.dev/gemma/terms)）と **Gemma 4 E2B**（3.35 GB、Apache 2.0。任意。過去の会話から事実を抜き出す。会話が溜まっても思い出しが落ちにくくなる）。
+3. 記憶を **Hermes Agent** につなぐ（先に Hermes を終了する）か、ほかのアプリのための **HTTP サイドカー**を用意する。
+4. 使い捨ての記憶で、ある会話の発言が別の会話で思い出せること、事実が抜き出せることを確かめる。
+
+そのあと自分で起動するものは無い。記憶が必要になったときに llama.cpp を自分で起動し、次のために動かしたままにする（検索で約 0.5 GB、事実ありでさらに約 4 GB のメモリ）。モデルは `~/.tsuzuki/models` に置く。エージェントがクラウドのモデルを使っていても、事実の抜き出しは手元で行う。
+
+DeepSeek Harness、自分で立てたモデルのサーバー、Ollama、このリポジトリの Mac 用エンジンを使うときは、[入れ方（手動）](#入れ方手動)。セットアップのスクリプトは Windows でも動くように書いてあるが、まだ macOS でしか動かしていない。
+
 ## 中身
 
 | 部品 | 場所 | すること |
@@ -186,7 +214,7 @@ J1 の規則で行うことになった追試（[`docs/MEMORY_JA_J1Q_PREREG.md`]
   - **ほかのマシン**：llama.cpp の `llama-server` と EmbeddingGemma 300m の GGUF（エンジンと比べて確認済み）、または [Ollama](https://ollama.com) の `embeddinggemma`（測っていない）。
 - **Hermes Agent で使うとき**：Hermes に同梱の Node（`~/.hermes/node/bin/node`）か、上の条件を満たす Node。
 
-## 入れ方
+## 入れ方（手動）
 
 ### 1. プラグインをビルドする（どの使い方でも）
 
