@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: tests (${{ matrix.os }}, Node ${{ matrix.node }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node: ['22']
+        include:
+          - os: ubuntu-latest
+            node: '24'
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build and test the plugins
+        working-directory: dsh-plugins
+        run: |
+          npx -y pnpm@10.26.1 install --frozen-lockfile
+          npx -y pnpm@10.26.1 test
+      - name: Hermes provider and installer tests
+        if: runner.os != 'Windows'  # the tests fake processes with POSIX shell scripts
+        run: |
+          python -I -B integrations/hermes/tests/test_tsuzuki.py
+          python -I -B integrations/hermes/tests/test_install.py
+          python -I -B integrations/hermes/tests/test_real_sidecar.py
+
+  setup:
+    name: quick start, end to end (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            asset: llama-b10964-bin-ubuntu-x64.tar.gz
+            facts: ''
+          - os: windows-latest
+            asset: llama-b10964-bin-win-cpu-x64.zip
+            facts: --no-facts
+          - os: macos-latest
+            asset: llama-b10964-bin-macos-arm64.tar.gz
+            facts: --no-facts
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: llama.cpp b10964 (official build)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/llama" && cd "$RUNNER_TEMP/llama"
+          gh release download b10964 --repo ggml-org/llama.cpp --pattern '${{ matrix.asset }}'
+          case '${{ matrix.asset }}' in *.zip) unzip -q '${{ matrix.asset }}' ;; *) tar xzf '${{ matrix.asset }}' ;; esac
+          bin=$(find "$PWD" -type f \( -name llama-server -o -name llama-server.exe \) | head -1)
+          echo "LLAMA_SERVER=$bin" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=$(dirname "$bin")" >> "$GITHUB_ENV"
+          "$bin" --version || true
+      - uses: actions/cache@v4
+        with:
+          path: ~/tsuzuki-models
+          key: models-${{ matrix.facts == '' && 'facts' || 'search' }}-v1
+      - name: node scripts/setup.mjs
+        shell: bash
+        run: node scripts/setup.mjs --yes --for app --models "$HOME/tsuzuki-models" --llama-server "$LLAMA_SERVER" ${{ matrix.facts }}
+      - name: Stop the llama-servers
+        if: always()
+        shell: bash
+        run: node scripts/setup.mjs --stop
