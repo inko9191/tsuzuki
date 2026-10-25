@@ -1,6 +1,6 @@
 # Files changed for publication
 
-This repository is a single-commit snapshot of the author's private development repository (branch `dsh-plugin`, commit `e4717a8`, 2026-10-24), made with `git archive` and then edited as listed here. 197 files are byte-identical to that commit at the same path. Every other file is listed below with its sha256 before and after, so the hashes recorded in the plan files can still be checked.
+This repository started as a single-commit snapshot of the author's private development repository (branch `dsh-plugin`, commit `e4717a8`, 2026-10-24), made with `git archive` and then edited as listed here. 197 files are byte-identical to that commit at the same path. Every other file is listed below with its sha256 before and after, so the hashes recorded in the plan files can still be checked.
 
 ## Evaluation records
 

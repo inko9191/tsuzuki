@@ -163,7 +163,7 @@ Full tables, with the V1024R and T2048 ablations:
 
 ### About the pre-registrations
 
-This public repository is a fresh snapshot in a single commit. The pre-registrations were committed **before** the results in the author's private development repository; that history is not part of this repository, so it cannot show the order here. What you can check here: each `*-plan.json` in `results/eval/memory/` records the sha256 of its pre-registration document and of the code it ran, and these files are byte-identical to the private repository, except the few listed with both hashes in [`docs/SANITIZED.md`](docs/SANITIZED.md). The original commit history is available on request.
+This public repository starts from a fresh snapshot (its first commit); later commits are listed in [`docs/SANITIZED.md`](docs/SANITIZED.md). The pre-registrations were committed **before** the results in the author's private development repository; that history is not part of this repository, so it cannot show the order here. What you can check here: each `*-plan.json` in `results/eval/memory/` records the sha256 of its pre-registration document and of the code it ran, and these files are byte-identical to the private repository, except the few listed with both hashes in [`docs/SANITIZED.md`](docs/SANITIZED.md). The original commit history is available on request.
 
 ## What is **not** shown
 
