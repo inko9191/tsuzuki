@@ -132,8 +132,8 @@ class InstallTests(unittest.TestCase):
             self.run_main(name)
             config = install.read_config_text((home / "config.yaml").read_text())
             self.assertEqual(config["memory"]["provider"], "tsuzuki", name)
-            self.assertEqual(config["memory"]["memory_enabled"], True, name)
-            self.assertEqual(config["memory"]["nudge_interval"], 10, name)
+            self.assertIn(config["memory"]["memory_enabled"], (True, "true"), name)  # PyYAML or the fallback parser
+            self.assertIn(config["memory"]["nudge_interval"], (10, "10"), name)
             self.assertEqual((home / "config.yaml").read_text().count("provider:"), 1, name)
             sidecar = home / "tsuzuki" / "config.json"
             self.assertEqual(sidecar.stat().st_mode & 0o777, 0o600)

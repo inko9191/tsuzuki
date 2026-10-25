@@ -52,7 +52,7 @@ PLUGIN_DIR = Path(__file__).resolve().parent
 
 # Seconds. Module-level so tests can shorten them.
 HEALTH_TIMEOUT_S = 1.5
-STARTUP_TIMEOUT_S = 15.0
+STARTUP_TIMEOUT_S = 45.0          # a slow or busy machine's first Node start can take well over 15 s
 # The sidecar answers a recall within ~3.5 s even when its embedding model hangs (0.5 s for pending indexing, 3 s
 # for the query embedding); MemoryManager gives prefetch() 8 s in total.
 PREFETCH_TIMEOUT_S = 4.5
