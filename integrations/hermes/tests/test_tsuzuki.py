@@ -707,9 +707,13 @@ class SyncTurnTests(SidecarTestCase):
         provider._proc.wait(timeout=5)
         provider.sync_turn("My bike is a red Bianchi.", "Noted.", session_id="s1")
         provider.sync_turn("It needs new brakes.", "OK.", session_id="s1")
+        posts_file = self.home / "tsuzuki" / "posts.jsonl"
+        # The restart starts a new interpreter; on a slow CI machine that alone outlasts the bounded drain of shutdown().
+        self.assertTrue(_wait_until(lambda: posts_file.exists() and "new brakes" in posts_file.read_text(),
+                                    timeout=em.STARTUP_TIMEOUT_S), "the writes reached a restarted sidecar")
         provider.shutdown()
         self.assertNotEqual(provider.spawned_pid, first, "a new sidecar was started")
-        posts = [json.loads(line) for line in (self.home / "tsuzuki" / "posts.jsonl").read_text().splitlines()]
+        posts = [json.loads(line) for line in posts_file.read_text().splitlines()]
         texts = [m["text"] for p in posts if p["path"] == "/v1/memory/messages" for m in p["payload"]["messages"]]
         self.assertEqual(texts, ["My bike is a red Bianchi.", "Noted.", "It needs new brakes.", "OK."])
 
