@@ -1,0 +1,173 @@
+{
+ "questions": 40,
+ "Qwen_AT_eligible": 40,
+ "arms": {
+  "Qwen-P": {
+   "correct": 0.725,
+   "abstain": 0.15,
+   "input_tokens": 3205.375,
+   "answer_seconds": 5.7901820594852325,
+   "by_type": {
+    "abstention": 1.0,
+    "knowledge-update": 1.0,
+    "multi-session": 0.5,
+    "single-session-assistant": 1.0,
+    "single-session-preference": 0.0,
+    "single-session-user": 0.6666666666666666,
+    "temporal-reasoning": 0.625
+   }
+  },
+  "Qwen-AT": {
+   "correct": 0.75,
+   "abstain": 0.125,
+   "input_tokens": 45310.65,
+   "answer_seconds": 99.3682171968394,
+   "by_type": {
+    "abstention": 1.0,
+    "knowledge-update": 1.0,
+    "multi-session": 0.5,
+    "single-session-assistant": 1.0,
+    "single-session-preference": 0.5,
+    "single-session-user": 0.6666666666666666,
+    "temporal-reasoning": 0.625
+   }
+  }
+ },
+ "P_coverage": 1.0,
+ "comparisons": {
+  "primary_Qwen_P_minus_Qwen_AT": {
+   "questions": 40,
+   "difference": -0.025,
+   "ci95": [
+    -0.1,
+    0.05
+   ],
+   "verdict": "判定不能",
+   "sign": {
+    "wins": 1,
+    "losses": 2,
+    "ties": 37,
+    "n": 3,
+    "p_two_sided": 1.0
+   }
+  },
+  "Qwen_P_minus_E2B_P": {
+   "questions": 40,
+   "difference": 0.175,
+   "ci95": [
+    0.0,
+    0.35
+   ],
+   "verdict": "傾向参考",
+   "sign": {
+    "wins": 11,
+    "losses": 4,
+    "ties": 25,
+    "n": 15,
+    "p_two_sided": 0.11846923828125
+   }
+  },
+  "Qwen_AT_minus_E2B_AT": {
+   "questions": 40,
+   "difference": 0.475,
+   "ci95": [
+    0.325,
+    0.625
+   ],
+   "verdict": "傾向参考",
+   "sign": {
+    "wins": 19,
+    "losses": 0,
+    "ties": 21,
+    "n": 19,
+    "p_two_sided": 3.814697265625e-06
+   }
+  }
+ },
+ "rows": {
+  "Qwen-P": {
+   "j01": 1,
+   "j02": 1,
+   "j03": 1,
+   "j04": 0,
+   "j05": 1,
+   "j06": 0,
+   "j07": 1,
+   "j08": 1,
+   "j09": 1,
+   "j10": 1,
+   "j11": 0,
+   "j12": 0,
+   "j13": 1,
+   "j14": 1,
+   "j15": 1,
+   "j16": 1,
+   "j17": 1,
+   "j18": 1,
+   "j19": 1,
+   "j20": 1,
+   "j21": 0,
+   "j22": 1,
+   "j23": 0,
+   "j24": 1,
+   "j25": 1,
+   "j26": 1,
+   "j27": 0,
+   "j28": 1,
+   "j29": 0,
+   "j30": 0,
+   "j31": 1,
+   "j32": 1,
+   "j33": 1,
+   "j34": 0,
+   "j35": 0,
+   "j36": 1,
+   "j37_abs": 1,
+   "j38_abs": 1,
+   "j39_abs": 1,
+   "j40_abs": 1
+  },
+  "Qwen-AT": {
+   "j01": 1,
+   "j02": 1,
+   "j03": 1,
+   "j04": 0,
+   "j05": 1,
+   "j06": 0,
+   "j07": 1,
+   "j08": 1,
+   "j09": 1,
+   "j10": 1,
+   "j11": 1,
+   "j12": 0,
+   "j13": 1,
+   "j14": 1,
+   "j15": 1,
+   "j16": 1,
+   "j17": 1,
+   "j18": 1,
+   "j19": 1,
+   "j20": 1,
+   "j21": 0,
+   "j22": 1,
+   "j23": 0,
+   "j24": 1,
+   "j25": 1,
+   "j26": 1,
+   "j27": 0,
+   "j28": 1,
+   "j29": 0,
+   "j30": 0,
+   "j31": 1,
+   "j32": 1,
+   "j33": 0,
+   "j34": 0,
+   "j35": 1,
+   "j36": 1,
+   "j37_abs": 1,
+   "j38_abs": 1,
+   "j39_abs": 1,
+   "j40_abs": 1
+  }
+ }
+}

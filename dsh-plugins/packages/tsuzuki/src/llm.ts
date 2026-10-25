@@ -23,17 +23,32 @@ export class ChatUnavailableError extends Error {
   override readonly name = 'ChatUnavailableError'
 }
 
-/** `fetch` that reports an unreachable server (or one still loading) as {@link ChatUnavailableError}. */
+/** A connection reset or closed by the other side (undici: `ECONNRESET`, `EPIPE`, `UND_ERR_SOCKET`). */
+export function socketReset(error: unknown): boolean {
+  const cause = (error as { cause?: { code?: unknown, message?: unknown } } | null)?.cause
+  const code = typeof cause?.code === 'string' ? cause.code : ''
+  return code === 'ECONNRESET' || code === 'EPIPE' || code === 'UND_ERR_SOCKET' || /other side closed/.test(String(cause?.message ?? ''))
+}
+
+/**
+ * `fetch` that reports an unreachable server (or one still loading) as {@link ChatUnavailableError}. A request that hit a
+ * connection the server had closed is sent once more first (chat requests have no side effects).
+ */
 async function call(url: string, init: RequestInit, caller: AbortSignal | undefined, timeoutMs: number): Promise<Response> {
   let response: Response
-  try {
-    response = await fetch(url, init)
-  } catch (error) {
-    if (caller?.aborted) throw error
-    if ((error as Error).name === 'TimeoutError') {
-      throw Object.assign(new Error(`${url}: no answer within ${timeoutMs} ms`, { cause: error }), { name: 'TimeoutError' })
+  for (let attempt = 1; ; attempt++) {
+    try {
+      response = await fetch(url, init)
+      break
+    } catch (error) {
+      if (caller?.aborted) throw error
+      if ((error as Error).name === 'TimeoutError') {
+        throw Object.assign(new Error(`${url}: no answer within ${timeoutMs} ms`, { cause: error }), { name: 'TimeoutError' })
+      }
+      // A kept-alive connection the server had already closed: the request never reached it, so send it once more.
+      if (attempt === 1 && socketReset(error)) continue
+      throw new ChatUnavailableError(`cannot reach ${url}: ${String((error as Error).cause ?? error)}`, { cause: error })
     }
-    throw new ChatUnavailableError(`cannot reach ${url}: ${String((error as Error).cause ?? error)}`, { cause: error })
   }
   if (response.status === 502 || response.status === 503) {
     throw new ChatUnavailableError(`${url}: HTTP ${response.status} ${(await response.text()).slice(0, 200)}`)

@@ -13,6 +13,7 @@ import * as p from './pipeline.ts'
 import { redact } from './redact.ts'
 import type { ForgetResult, ForgetScope, MemoryStore, Segment, StoredTurn, StoredUnit } from './store.ts'
 import { RankIndex, factOrder, windowOrder } from './unit-index.ts'
+import { linkedSignal } from './signals.ts'
 
 export type { ForgetResult, ForgetScope }
 
@@ -172,6 +173,10 @@ export interface Retrieval {
   reranked: boolean
   candidates: number
 }
+
+/** Tries of one update check when the chat server cannot be reached, and the pause before the n-th retry (n × this). */
+const LINK_ATTEMPTS = 4
+const LINK_RETRY_MS = 1000
 
 /** Embedded when a batch fails, to tell an embedder that is down from a unit it refuses. */
 const PROBE = 'memory index probe'
@@ -370,10 +375,10 @@ export class Memory {
         + 'or until it answers again')
     }
     const limit = task === 'query' ? AbortSignal.timeout(this.options.queryTimeoutMs) : null
-    const signals = [this.closing.signal, ...signal ? [signal] : [], ...limit ? [limit] : []]
+    const linked = linkedSignal([this.closing.signal, signal, limit])
     let vectors: Float32Array[]
     try {
-      vectors = await this.embedder.embed(input, task, AbortSignal.any(signals))
+      vectors = await this.embedder.embed(input, task, linked.signal)
     } catch (error) {
       if (this.closed || signal?.aborted) throw error  // shutdown or the caller gave up: says nothing about the model
       if (refusedInput(error) || !countFailure) throw error  // the input, not the model
@@ -384,6 +389,8 @@ export class Memory {
       if (limit?.aborted) this.queryBackoffUntil = Date.now() + this.options.queryBackoffMs
       this.embeddingFailed(failure)
       throw failure
+    } finally {
+      linked.release()
     }
     this.embeddingAnswered()
     return vectors
@@ -423,14 +430,16 @@ export class Memory {
 
   /** Chat requests (facts, update links, rerank) go through here, for `status()`; `close()` aborts them. */
   private async complete(messages: readonly p.ChatMessage[], options: { maxTokens: number, schema: object, name: string, signal?: AbortSignal }): Promise<string> {
-    const signal = AbortSignal.any([this.closing.signal, ...options.signal ? [options.signal] : []])
+    const linked = linkedSignal([this.closing.signal, options.signal])
     try {
-      const reply = await this.chat!.complete(messages, { ...options, signal })
+      const reply = await this.chat!.complete(messages, { ...options, signal: linked.signal })
       this.chatState = { ...this.chatState, ok: true }
       return reply
     } catch (error) {
-      if (!signal.aborted) this.chatFailed(error)
+      if (!linked.signal.aborted) this.chatFailed(error)
       throw error
+    } finally {
+      linked.release()
     }
   }
 
@@ -643,15 +652,26 @@ export class Memory {
     if ([...fresh, ...earlier].some(r => !vectors.has(r.key))) return this.log('warn', `update check skipped for ${segmentId}: facts not indexed`)
     const job = p.updateJob(fresh, earlier, vectors)
     if (!job) return
-    try {
-      const reply = await this.complete(p.updateMessages(job, new Map(rows.map(r => [r.key, r] as const))),
-        { maxTokens: p.UPDATE.maxTokens, schema: p.UPDATE.schema, name: 'updates', signal })
-      if (this.closed) return
-      const links = p.parseUpdates(reply, job) ?? []
-      this.store.addLinks(links)
-      if (links.length) this.log('info', `${links.length} facts outdated by ${segmentId}`)
-    } catch (error) {
-      if (!this.closed) this.log('warn', `update check failed for ${segmentId}: ${String(error)}`)
+    const messages = p.updateMessages(job, new Map(rows.map(r => [r.key, r] as const)))
+    for (let attempt = 1; ; attempt++) {
+      try {
+        const reply = await this.complete(messages, { maxTokens: p.UPDATE.maxTokens, schema: p.UPDATE.schema, name: 'updates', signal })
+        if (this.closed) return
+        const links = p.parseUpdates(reply, job) ?? []
+        this.store.addLinks(links)
+        if (links.length) this.log('info', `${links.length} facts outdated by ${segmentId}`)
+        return
+      } catch (error) {
+        if (this.closed || signal?.aborted) return
+        // The check runs once, right after the extraction: a chat server that is briefly unreachable must not cost it
+        // (before 2026-10-25 a dropped connection lost the check; 11% of them in a 5,000-session build).
+        if ((error as Error).name === 'ChatUnavailableError' && attempt < LINK_ATTEMPTS) {
+          await new Promise(resolve => setTimeout(resolve, LINK_RETRY_MS * attempt))
+          continue
+        }
+        this.log('warn', `update check failed for ${segmentId}: ${String(error)}`)
+        return
+      }
     }
   }
 
@@ -706,6 +726,8 @@ export class Memory {
     if (!query.trim() || (!indexed && (this.embedding.ok !== false || !this.allTurns().length))) {
       return { text: '', ids: [], reranked: false, candidates: 0 }
     }
+    // The query may go to a remote embedding endpoint or the reranker: the same redaction as stored text.
+    if (this.options.redactSecrets) query = redact(query).text
     const [qv] = await this.embed([query], 'query', options.signal)
     if (!indexed) return { text: '', ids: [], reranked: false, candidates: 0 }
     // After the await: a forget or a capture may have run while the query was embedded.

@@ -23,11 +23,24 @@ const RULES: Rule[] = [
   { kind: 'STRIPE_KEY', pattern: /\b(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{20,}/g },
   { kind: 'JWT', pattern: /\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g },
   { kind: 'BEARER', pattern: /\b(Bearer\s+)[A-Za-z0-9._~+/-]{20,}=*/g, keepLabel: true },
-  { kind: 'URL_CREDENTIALS', pattern: /\b([a-z][a-z0-9+.-]*:\/\/[^\s:/@]+:)[^\s@/]+(?=@)/gi, keepLabel: true },
-  // `password: x`, `api_key = x`, `パスワード：x`, `secret="x"` — the label stays, the value goes. Values are
-  // ASCII-printable runs, so Japanese text written right after a value (`…123です`) is kept.
+  { kind: 'URL_CREDENTIALS', pattern: /\b([a-z][a-z0-9+.-]{0,31}:\/\/[^\s:/@]+:)[^\s@/]+(?=@)/gi, keepLabel: true },
+  { kind: 'BASIC_AUTH', pattern: /\b(Basic\s+)[A-Za-z0-9+/]{16,}={0,2}/g, keepLabel: true },
+  { kind: 'GITLAB_TOKEN', pattern: /\bglpat-[A-Za-z0-9_-]{20,}/g },
+  { kind: 'NPM_TOKEN', pattern: /\bnpm_[A-Za-z0-9]{36}\b/g },
+  { kind: 'SENDGRID_KEY', pattern: /\bSG\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}/g },
+  { kind: 'STRIPE_WEBHOOK_SECRET', pattern: /\bwhsec_[A-Za-z0-9]{20,}/g },
+  { kind: 'SLACK_WEBHOOK', pattern: /https:\/\/hooks\.slack\.com\/services\/[A-Za-z0-9/_-]+/g },
+  { kind: 'DISCORD_TOKEN', pattern: /\b[MNO][A-Za-z\d_-]{23,27}\.[A-Za-z\d_-]{6}\.[A-Za-z\d_-]{27,40}\b/g },
+  // `password: x`, `OPENAI_API_KEY=x`, `パスワード：x`, `secret="x"`: the label stays, the value goes. A label may carry
+  // a prefix (`DB_PASSWORD`, `AWS_SECRET_ACCESS_KEY`). Values are ASCII-printable runs, so Japanese text written right
+  // after a value (`…123です`) is kept.
   { kind: 'SECRET_VALUE',
-    pattern: /((?:\b(?:password|passwd|pwd|passphrase|secret|api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret|private[_-]?key)\b|パスワード|暗証番号|シークレット|APIキー)\s*["']?\s*[:=：]\s*["']?)((?:(?!["'`,;])[\x21-\x7e]){4,})/gi,
+    pattern: /((?:(?<![A-Za-z0-9])(?:[A-Za-z0-9]{1,24}[_-]){0,4}(?:password|passwd|passphrase|secret(?:[_-]?(?:access[_-]?)?key)?|api[_-]?key|access[_-]?token|auth[_-]?token|token|client[_-]?secret|private[_-]?key)(?![A-Za-z0-9])|パスワード|暗証番号|シークレット|APIキー)\s*(?:["']\s*)?[:=：]\s*["']?)((?:(?!["'`,;])[\x21-\x7e]){4,})/gi,
+    keepLabel: true },
+  // "my password is hunter2", "パスワードは abc123": only values with a digit or a symbol, so "the password is
+  // required" stays as written.
+  { kind: 'SECRET_VALUE',
+    pattern: /((?<![A-Za-z0-9])(?:password|passcode|passphrase)\s+is\s+|(?:パスワード|暗証番号)は\s*)((?=[\x21-\x7e]*[0-9!@#$%^&*_+=~-])[\x21-\x7e]{4,})/gi,
     keepLabel: true },
 ]
 

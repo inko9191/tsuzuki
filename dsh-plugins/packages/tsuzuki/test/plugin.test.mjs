@@ -46,8 +46,18 @@ async function boot(config = {}, dir = mkdtempSync(join(tmpdir(), 'plugin-'))) {
 const onDisk = (dir, text) => readdirSync(dir).filter(f => f.startsWith('memory.db'))
   .some(f => readFileSync(join(dir, f)).includes(Buffer.from(text)))
 
+test('memory_forget is off unless tool.forget is set', async () => {
+  const { tools, fiber } = await boot()
+  try {
+    assert.ok(tools.get('memory_search'))
+    assert.equal(tools.get('memory_forget'), undefined)
+  } finally {
+    fiber.dispose?.()
+  }
+})
+
 test('memory_forget: asks for confirmation in its description, takes exactly one scope, deletes from the file', async () => {
-  const { dir, tools, fiber, say, call } = await boot()
+  const { dir, tools, fiber, say, call } = await boot({ tool: { forget: true } })
   try {
     const forget = tools.get('memory_forget')
     assert.ok(forget, 'registered next to memory_search')

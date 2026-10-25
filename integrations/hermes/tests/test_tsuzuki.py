@@ -301,6 +301,7 @@ class SidecarTestCase(unittest.TestCase):
         kwargs.setdefault("hermes_home", str(self.home))
         kwargs.setdefault("platform", "cli")
         provider.initialize(session_id, **kwargs)
+        provider._forget_enabled = True  # memory.tsuzuki.forget: true (off by default; see test_forget_is_off_by_default)
         self.providers.append(provider)
         return provider
 
@@ -752,6 +753,31 @@ class SyncTurnTests(SidecarTestCase):
         ])
 
 
+class ForgetSettingTests(SidecarTestCase):
+    def test_forget_is_off_by_default(self) -> None:
+        provider = em.TsuzukiProvider()
+        self.providers.append(provider)
+        with mock.patch.object(em, "_profile_settings", lambda home=None: {}):
+            provider.initialize("s1", hermes_home=str(self.home), platform="cli")
+            self.assertEqual([t["name"] for t in provider.get_tool_schemas()], ["tsuzuki_search"])
+            refused = json.loads(provider.handle_tool_call("tsuzuki_forget", {"all": True}))
+        self.assertIn("turned off", refused["error"])
+        self.assertEqual(self.sidecar.calls("/v1/memory/forget"), [])
+        on = em.TsuzukiProvider()
+        self.providers.append(on)
+        with mock.patch.object(em, "_profile_settings", lambda home=None: {"forget": True}):
+            self.assertIn("tsuzuki_forget", [t["name"] for t in on.get_tool_schemas()])
+
+    def test_the_sidecar_token_is_sent(self) -> None:
+        provider = self.make()
+        provider._token = "t0ken"
+        seen = []
+        real = em._http_json
+        with mock.patch.object(em, "_http_json", lambda *a, **k: (seen.append(k.get("token")), real(*a, **{**k, "token": ""}))[1]):
+            provider._post("/v1/memory/flush", {}, 5.0)
+        self.assertEqual(seen, ["t0ken"])
+
+
 class ReadOnlyTests(SidecarTestCase):
     def test_non_primary_contexts_read_but_never_write(self) -> None:
         for context in ("subagent", "cron", "flush"):
@@ -892,6 +918,7 @@ class HermesRuntimeTests(SidecarTestCase):
 
         manager = MemoryManager()
         provider = em.TsuzukiProvider()
+        provider._forget_enabled = True  # as with memory.tsuzuki.forget: true
         self.providers.append(provider)
         manager.add_provider(provider)
         self.assertTrue(manager.has_tool("tsuzuki_search"))

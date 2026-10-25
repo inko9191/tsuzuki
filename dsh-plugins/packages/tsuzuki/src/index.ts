@@ -8,7 +8,7 @@
  *   (the local llama.cpp Qwen server), yielding while the agent or the server is busy.
  * - Before a step that carries a new user message (`agent/pre-step`), prepends a `recall` message with
  *   dated excerpts from other sessions. The system prompt only gets a static guide (cache-safe).
- * - Tool `memory_search` for explicit lookups (with LLM rerank by default), and `memory_forget` to delete memory
+ * - Tool `memory_search` for explicit lookups (LLM rerank optional, off by default), and `memory_forget` to delete memory
  *   (one session, everything before a date, or all) once the user has confirmed the exact scope.
  * - Optional working memory (`working.enabled`) for long tasks: tool calls and results are stored too, and after
  *   the context is compacted, the summarized-away part of the same session that fits the current step is recalled
@@ -30,6 +30,7 @@ import { join } from 'node:path'
 import { OpenAIChat, LLAMA_CPP_EXTRA } from './llm.ts'
 import { EmbeddingTimeoutError, EmbeddingUnavailableError, Memory, clip, describe, forgetScope, formatDate, within, type Embedder,
   type ForgetResult, type ForgetScope } from './memory.ts'
+import { linkedSignal } from './signals.ts'
 import { GUIDE, recallText, workingText } from './format.ts'
 import { MemoryStore } from './store.ts'
 
@@ -74,9 +75,9 @@ export const Config: z<Config> = z.object({
   tool: z.object({
     enabled: z.boolean().default(true),
     budgetTokens: z.natural().min(64).default(1024),
-    rerank: z.boolean().default(true),
+    rerank: z.boolean().default(false).description('Rerank with the chat model. Off by default: with a small model (Gemma 4 E2B) it lowered recall and answers at 5,000 sessions (S2), and the evaluated setting P does not rerank.'),
     timeoutMs: z.natural().default(60000),
-    forget: z.boolean().default(true).description('Offer memory_forget, which deletes memory after the user confirms the scope (with tool.enabled).'),
+    forget: z.boolean().default(false).description('Offer memory_forget (with tool.enabled). Off by default: a model steered by a web page or a pasted text could call it, and asking the user first is only an instruction to the model.'),
   }),
   llm: z.object({
     baseUrl: z.string().default('http://127.0.0.1:8080/v1').description('OpenAI-compatible endpoint for facts and rerank; empty disables both.'),
@@ -192,9 +193,10 @@ class ServiceEmbedder implements Embedder {
 function withTimeout<T>(job: (signal: AbortSignal) => Promise<T>, ms: number, outer: AbortSignal): Promise<T | undefined> {
   if (outer.aborted) return Promise.resolve(undefined)
   const stop = new AbortController()
-  const signal = AbortSignal.any([outer, stop.signal])
+  const linked = linkedSignal([outer, stop.signal])
+  const signal = linked.signal
   return new Promise((resolve, reject) => {
-    const finish = () => { clearTimeout(timer); signal.removeEventListener('abort', abort) }
+    const finish = () => { clearTimeout(timer); signal.removeEventListener('abort', abort); linked.release() }
     const abort = () => { finish(); resolve(undefined) }
     const timer = setTimeout(() => stop.abort(new Error(`no result within ${ms} ms`)), ms)
     signal.addEventListener('abort', abort, { once: true })
@@ -210,7 +212,7 @@ const outage = (error: unknown) => error instanceof EmbeddingUnavailableError ||
 
 export function apply(ctx: Context, config: Config): void {
   const dir = config.dataDir || dshHomePath('tsuzuki')
-  mkdirSync(dir, { recursive: true })
+  mkdirSync(dir, { recursive: true, mode: 0o700 })
   const store = new MemoryStore(join(dir, 'memory.db'))
   const chat = config.llm.baseUrl ? new OpenAIChat({
     baseUrl: config.llm.baseUrl, model: config.llm.model, apiKey: config.llm.apiKey, timeoutMs: config.llm.timeoutMs,

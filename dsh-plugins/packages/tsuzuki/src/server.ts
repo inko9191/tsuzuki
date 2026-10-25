@@ -7,9 +7,9 @@
  *
  * Prints one JSON line `{"event":"ready","port":N}` when listening. See README "Sidecar API".
  */
-import { closeSync, mkdirSync, openSync, readFileSync, writeFileSync, existsSync, realpathSync } from 'node:fs'
+import { chmodSync, closeSync, mkdirSync, openSync, readFileSync, writeFileSync, existsSync, realpathSync } from 'node:fs'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
-import { createHash } from 'node:crypto'
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 import { spawn } from 'node:child_process'
 import { homedir } from 'node:os'
 import { dirname, join, sep } from 'node:path'
@@ -47,7 +47,7 @@ export function defaults(dataDir: string): SidecarConfig {
       autoPull: true, acceptModelLicense: false, queryTimeoutMs: 3000 },
     chat: { baseUrl: '', model: '', apiKey: '', server: 'llama.cpp', timeoutMs: 180000, rerankTimeoutMs: 15000 },
     recall: { budgetTokens: 2048 },
-    search: { budgetTokens: 2048, rerank: true },
+    search: { budgetTokens: 2048, rerank: false },
     facts: { segmentTokens: 2500, segmentIdleMinutes: 30, intervalSeconds: 60, updateLinks: true },
     capture: { redactSecrets: true },
   }
@@ -57,9 +57,11 @@ export function defaults(dataDir: string): SidecarConfig {
 export function loadConfig(path: string): SidecarConfig {
   const base = defaults(join(dirname(path)))
   if (!existsSync(path)) {
-    mkdirSync(dirname(path), { recursive: true })
-    writeFileSync(path, JSON.stringify(base, null, 2) + '\n')
-    return base
+    // A new config gets a random token: only programs that can read this file (the user's own) can use the sidecar.
+    const created = { ...base, token: randomBytes(24).toString('hex') }
+    mkdirSync(dirname(path), { recursive: true, mode: 0o700 })
+    writeFileSync(path, JSON.stringify(created, null, 2) + '\n', { mode: 0o600 })
+    return created
   }
   const file = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>
   const out = { ...base } as Record<string, unknown>
@@ -76,9 +78,18 @@ function log(level: string, message: string): void {
 /** A request the client got wrong (answered 400, not 500). */
 class BadRequest extends Error {}
 
+/** Largest request body accepted (a batch of long messages fits easily); larger ones are answered 413. */
+export const MAX_BODY_BYTES = 8 * 1024 * 1024
+
+class TooLarge extends Error {}
+
 async function body(req: IncomingMessage): Promise<Record<string, unknown>> {
-  let raw = ''
-  for await (const chunk of req) raw += chunk
+  let raw = '', size = 0
+  for await (const chunk of req) {
+    size += (chunk as Buffer).length
+    if (size > MAX_BODY_BYTES) throw new TooLarge(`the body is larger than ${MAX_BODY_BYTES} bytes`)
+    raw += chunk
+  }
   if (!raw) return {}
   let value: unknown
   try {
@@ -141,6 +152,8 @@ export class EngineServer {
     if (!this.starting) {
       const run = this.start()
       this.starting = run.finally(() => { this.starting = null })
+      // A caller that gave up does not wait for the start; its failure must not go unhandled (that ends Node).
+      this.starting.catch(() => {})
     }
     return abortable(this.starting, signal)
   }
@@ -197,13 +210,19 @@ const LOOPBACK = new Set(['127.0.0.1', 'localhost', '::1'])
  * page arrives with a foreign `Host`, and only JSON POSTs are accepted (a browser can send `text/plain` without a
  * CORS preflight, never `application/json`).
  */
+/** Constant-time comparison (of digests, so the lengths are equal). */
+function sameSecret(given: string, expected: string): boolean {
+  const digest = (v: string) => createHash('sha256').update(v).digest()
+  return timingSafeEqual(digest(given), digest(expected))
+}
+
 export function refusal(req: IncomingMessage, config: Pick<SidecarConfig, 'host' | 'token'>, port: number): [number, string] | null {
   if (req.headers.origin !== undefined) return [403, 'browser requests are not accepted']
   if (LOOPBACK.has(config.host)) {
     const allowed = new Set([`127.0.0.1:${port}`, `localhost:${port}`, `[::1]:${port}`])
     if (!allowed.has(String(req.headers.host ?? '').toLowerCase())) return [403, 'unexpected Host header']
   }
-  if (config.token && req.headers.authorization !== `Bearer ${config.token}`) return [401, 'missing or wrong token']
+  if (config.token && !sameSecret(String(req.headers.authorization ?? ''), `Bearer ${config.token}`)) return [401, 'missing or wrong token']
   if (req.method === 'POST' && !/^application\/json\b/i.test(String(req.headers['content-type'] ?? ''))) {
     return [415, 'Content-Type must be application/json']
   }
@@ -214,7 +233,7 @@ export async function start(config: SidecarConfig): Promise<{ close(): Promise<v
   if (!LOOPBACK.has(config.host) && !config.token) {
     throw new Error(`refusing to listen on ${config.host} without a token (set "token" in the config)`)
   }
-  mkdirSync(config.dataDir, { recursive: true })
+  mkdirSync(config.dataDir, { recursive: true, mode: 0o700 })
   const dataDir = realpathSync(config.dataDir)
   const store = new MemoryStore(join(config.dataDir, 'memory.db'))
   const engine = config.embedding.engine ? new EngineServer(config.embedding.engine, config.dataDir) : null
@@ -388,6 +407,7 @@ export async function start(config: SidecarConfig): Promise<{ close(): Promise<v
       return send(res, 404, { error: 'not found' })
     } catch (error) {
       if (error instanceof BadRequest) return send(res, 400, { error: error.message })
+      if (error instanceof TooLarge) { res.setHeader('connection', 'close'); return send(res, 413, { error: error.message }) }
       log('warn', `request failed: ${describe(error)}`)
       return send(res, 500, { error: String(error) })
     }

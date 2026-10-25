@@ -450,7 +450,7 @@ test('search with a hung chat model: no answer at all skips the rerank at once; 
     try {
       await post(s.port, '/v1/memory/messages', { session: 'a', messages: [{ role: 'user', text: 'The quokka locker is in hall C.' }] })
       const t = Date.now()
-      const r = await postRaw(s.port, '/v1/memory/search', { query: 'quokka locker' })
+      const r = await postRaw(s.port, '/v1/memory/search', { query: 'quokka locker', rerank: true })  // off by default
       return { ...r, ms: Date.now() - t, health: await health(s.port) }
     } finally {
       await s.close()
@@ -536,6 +536,43 @@ test('node lib/server.js runs the sidecar, as the Hermes provider starts it; on 
   } finally {
     child.kill('SIGTERM')
     await exited
+    await emb.close()
+  }
+})
+
+test('search does not rerank unless asked (the evaluated setting P has no rerank)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sidecar-'))
+  assert.equal(defaults(dir).search.rerank, false)
+})
+
+test('a new config gets a random token and private files; bodies over the limit get 413 (2026-10-25 review)', async () => {
+  const { statSync } = await import('node:fs')
+  const dir = mkdtempSync(join(tmpdir(), 'sidecar-'))
+  const path = join(dir, 'conf', 'config.json')
+  const config = loadConfig(path)
+  assert.match(config.token, /^[0-9a-f]{48}$/)
+  assert.equal(statSync(path).mode & 0o777, 0o600)
+  assert.equal(loadConfig(path).token, config.token, 'kept on the next start')
+  const emb = await fakeEmbeddings()
+  const s = await start({ ...config, dataDir: join(dir, 'data'), port: 0, embedding: { ...config.embedding, baseUrl: emb.url, autoPull: false } })
+  try {
+    assert.equal(statSync(join(dir, 'data')).mode & 0o777, 0o700)
+    assert.equal(statSync(join(dir, 'data', 'memory.db')).mode & 0o777, 0o600)
+    const ask = (headers, body) => new Promise((resolve, reject) => {
+      const req = request({ host: '127.0.0.1', port: s.port, path: '/v1/memory/recall', method: 'POST',
+        headers: { 'content-type': 'application/json', ...headers } }, res => { res.resume(); res.on('end', () => resolve(res.statusCode)) })
+      req.on('error', reject)
+      req.end(body)
+    })
+    assert.equal(await ask({}, '{"query":"x"}'), 401, 'no token')
+    assert.equal(await ask({ authorization: 'Bearer wrong' }, '{"query":"x"}'), 401)
+    assert.equal(await ask({ authorization: `Bearer ${config.token}` }, '{"query":"x"}'), 200)
+    // Over the limit: 413, or the connection closed while the client is still sending (EPIPE); the sidecar stays up.
+    const big = await ask({ authorization: `Bearer ${config.token}` }, '{"query":"' + 'x'.repeat(9 * 1024 * 1024) + '"}').catch(e => e.code)
+    assert.ok(big === 413 || big === 'EPIPE' || big === 'ECONNRESET', String(big))
+    assert.equal(await ask({ authorization: `Bearer ${config.token}` }, '{"query":"x"}'), 200)
+  } finally {
+    await s.close()
     await emb.close()
   }
 })

@@ -19,6 +19,7 @@ Where the two paths come from (first hit wins):
 from __future__ import annotations
 
 import json
+import secrets
 import logging
 import os
 import queue
@@ -242,10 +243,16 @@ def _resolve_launch(home: Optional[str] = None) -> tuple[Optional[str], Optional
 
 
 def profile_port(data_dir: Path) -> int:
-    """A stable port per data dir, so two Hermes profiles never share one sidecar (and one memory)."""
+    """A stable port per data dir, so two Hermes profiles never share one sidecar (and one memory); never 8299, the
+    embedding engine's port."""
     import hashlib
     digest = hashlib.sha256(str(Path(data_dir).resolve()).encode()).hexdigest()
-    return DEFAULT_PORT + int(digest, 16) % 500
+    port = DEFAULT_PORT + int(digest, 16) % 500
+    return DEFAULT_PORT + 500 if port == 8299 else port
+
+
+def _truthy(value: Any) -> bool:
+    return value is True or str(value).strip().lower() in ("true", "yes", "on", "1")
 
 
 def default_sidecar_config(data_dir: Path) -> dict[str, Any]:
@@ -260,18 +267,20 @@ def default_sidecar_config(data_dir: Path) -> dict[str, Any]:
         },
         "chat": {"baseUrl": "", "model": ""},
         "recall": {"budgetTokens": 2048},
+        "token": secrets.token_hex(24),
     }
 
 
 def _load_or_create_sidecar_config(data_dir: Path) -> tuple[Path, dict[str, Any]]:
     """Read ``<data_dir>/config.json``, writing the defaults first when it does not exist."""
-    data_dir.mkdir(parents=True, exist_ok=True)
+    data_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     path = data_dir / "config.json"
     if not path.exists():
         tmp = data_dir / f".config.json.{os.getpid()}.{threading.get_ident()}.tmp"
         try:
-            tmp.write_text(json.dumps(default_sidecar_config(data_dir), indent=2, ensure_ascii=False) + "\n",
-                           encoding="utf-8")
+            fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)  # holds the sidecar's token
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(json.dumps(default_sidecar_config(data_dir), indent=2, ensure_ascii=False) + "\n")
             os.link(tmp, path)  # never overwrites a config another process just created
         except FileExistsError:
             pass
@@ -368,9 +377,12 @@ _OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
 def _http_json(base_url: str, method: str, path: str, payload: Optional[dict[str, Any]] = None,
-               timeout: float = 5.0) -> dict[str, Any]:
+               timeout: float = 5.0, token: str = "") -> dict[str, Any]:
     data = None if payload is None else json.dumps(payload, ensure_ascii=False).encode("utf-8")
     headers = {"Accept": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
     if data is not None:
         headers["Content-Type"] = "application/json"
     request = urllib.request.Request(base_url + path, data=data, method=method, headers=headers)
@@ -441,6 +453,8 @@ class TsuzukiProvider(MemoryProvider):
         self._data_dir: Optional[Path] = None
         self._config_path: Optional[Path] = None
         self._base_url = f"http://127.0.0.1:{DEFAULT_PORT}"
+        self._token = ""
+        self._forget_enabled: Optional[bool] = None
         self._session_id = ""
         self._agent_context = "primary"
         self._read_only = False
@@ -501,6 +515,7 @@ class TsuzukiProvider(MemoryProvider):
             logger.warning("tsuzuki: cannot prepare %s: %s", self._data_dir, exc)
             return
         self._base_url = f"http://127.0.0.1:{_port_of(config)}"
+        self._token = str(config.get("token") or "")
         self._node, self._server_js, _ = _resolve_launch(self._hermes_home)
         try:
             if self._ensure_sidecar():
@@ -514,7 +529,15 @@ class TsuzukiProvider(MemoryProvider):
         return SYSTEM_PROMPT_BLOCK
 
     def get_tool_schemas(self) -> list[dict[str, Any]]:
-        return [SEARCH_SCHEMA, FORGET_SCHEMA]
+        # The forget tool deletes for good, and asking the user first is only an instruction to the model (a web page or
+        # a pasted text could steer it): offered only with memory.tsuzuki.forget: true in config.yaml.
+        return [SEARCH_SCHEMA, FORGET_SCHEMA] if self._forget_allowed() else [SEARCH_SCHEMA]
+
+    def _forget_allowed(self) -> bool:
+        """``memory.tsuzuki.forget`` of this profile (Hermes asks for the tools before initialize())."""
+        if self._forget_enabled is None:
+            self._forget_enabled = _truthy(_profile_settings(self._hermes_home).get("forget"))
+        return self._forget_enabled
 
     def shutdown(self) -> None:
         """Drain queued writes (bounded). The sidecar is deliberately left running: other Hermes
@@ -537,7 +560,7 @@ class TsuzukiProvider(MemoryProvider):
         """True only for a sidecar serving this profile's data dir (another profile's sidecar on the
         same port must not receive this profile's conversations)."""
         try:
-            health = _http_json(self._base_url, "GET", "/health", timeout=HEALTH_TIMEOUT_S)
+            health = _http_json(self._base_url, "GET", "/health", timeout=HEALTH_TIMEOUT_S, token=self._token)
         except SidecarError:
             return False
         if health.get("status") != "ok":
@@ -624,7 +647,7 @@ class TsuzukiProvider(MemoryProvider):
     # -- HTTP helpers ---------------------------------------------------------------------
 
     def _post(self, path: str, payload: dict[str, Any], timeout: float) -> dict[str, Any]:
-        return _http_json(self._base_url, "POST", path, payload, timeout=timeout)
+        return _http_json(self._base_url, "POST", path, payload, timeout=timeout, token=self._token)
 
     def _note_failure(self, what: str, exc: BaseException) -> None:
         # One warning per outage; repeats go to debug so a stopped sidecar does not flood the log.
@@ -652,7 +675,7 @@ class TsuzukiProvider(MemoryProvider):
         deadline = time.monotonic() + EMBEDDING_CHECK_S
         while not self._closed and time.monotonic() < deadline:
             try:
-                health = _http_json(self._base_url, "GET", "/health", timeout=HEALTH_TIMEOUT_S)
+                health = _http_json(self._base_url, "GET", "/health", timeout=HEALTH_TIMEOUT_S, token=self._token)
             except SidecarError:
                 return
             embedding = health.get("embedding")
@@ -939,6 +962,8 @@ class TsuzukiProvider(MemoryProvider):
         """POST /v1/memory/forget after this provider's queued writes, so the turns already sent are covered."""
         if self._read_only:
             return _tool_error("memory is read-only here (subagent, cron or flush run); nothing was deleted")
+        if not self._forget_allowed():
+            return _tool_error("forgetting is turned off (set memory.tsuzuki.forget: true in config.yaml); nothing was deleted")
         if isinstance(args, str):
             try:
                 args = json.loads(args)

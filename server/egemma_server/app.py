@@ -22,6 +22,7 @@ import time
 from concurrent.futures import TimeoutError as FutureTimeout
 from dataclasses import dataclass
 from http import HTTPStatus
+from typing import Optional
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from .batcher import Batcher
@@ -29,7 +30,7 @@ from .metrics import Clock, RequestStats, footprint
 from .tokenizer import PromptTokenizer
 
 ALLOWED_DIMENSIONS = (768, 512, 256, 128)
-MAX_BODY_BYTES = 64 * 1024 * 1024
+MAX_BODY_BYTES = 16 * 1024 * 1024
 
 
 class ApiError(Exception):
@@ -210,6 +211,22 @@ def make_handler(service: Service):
             self.end_headers()
             self.wfile.write(payload)
 
+        # A web page in the user's browser must not use this server: browsers send Origin on cross-site requests, a
+        # DNS-rebinding page arrives with a foreign Host, and a no-preflight POST cannot be application/json.
+        timeout = 120  # a client that stops sending does not hold a thread forever
+
+        def _refused(self, post: bool) -> Optional[ApiError]:
+            if self.headers.get("Origin") is not None:
+                return ApiError(HTTPStatus.FORBIDDEN, "browser requests are not accepted", "forbidden")
+            host, port = self.server.server_address[:2]
+            if str(host) in ("127.0.0.1", "::1", "localhost"):
+                allowed = {f"127.0.0.1:{port}", f"localhost:{port}", f"[::1]:{port}"}
+                if str(self.headers.get("Host", "")).lower() not in allowed:
+                    return ApiError(HTTPStatus.FORBIDDEN, "unexpected Host header", "forbidden")
+            if post and not str(self.headers.get("Content-Type", "")).lower().startswith("application/json"):
+                return ApiError(HTTPStatus.UNSUPPORTED_MEDIA_TYPE, "Content-Type must be application/json", "invalid_body")
+            return None
+
         def _authorized(self) -> bool:
             key = service.settings.api_key
             if not key:
@@ -219,7 +236,10 @@ def make_handler(service: Service):
 
         def do_GET(self):
             path = self.path.split("?", 1)[0]
-            if path == "/health":
+            refused = self._refused(post=False)
+            if refused:
+                self._send(refused.status, refused.body())
+            elif path == "/health":
                 self._send(*service.health())
             elif not self._authorized():
                 self._send(HTTPStatus.UNAUTHORIZED, ApiError(HTTPStatus.UNAUTHORIZED, "Invalid API key", "invalid_api_key").body())
@@ -233,6 +253,9 @@ def make_handler(service: Service):
         def do_POST(self):
             path = self.path.split("?", 1)[0]
             try:
+                refused = self._refused(post=True)
+                if refused:
+                    raise refused
                 if not self._authorized():
                     raise ApiError(HTTPStatus.UNAUTHORIZED, "Invalid API key", "invalid_api_key")
                 if path not in ("/v1/embeddings", "/embeddings"):

@@ -7,8 +7,8 @@
 - tsuzuki は、あなたとエージェントの過去の会話を保存する。
 - 新しい発言のたびに、関係する過去の発言を日付つきで渡す。渡すのは**最大 2,048 トークンの記憶で、全履歴ではない**。
 - すべてローカルで動く。
-  - 検索は EmbeddingGemma 300m（Mac ではこのリポジトリのエンジン、ほかでは Ollama）。
-  - 過去の会話からの事実の抽出は、手元のチャットモデル（検証は llama.cpp 上の Qwen）。
+  - 検索は EmbeddingGemma 300m（Mac ではこのリポジトリのエンジン、ほかでは llama.cpp か Ollama）。
+  - 過去の会話からの事実の抽出は、手元のチャットモデル（検証は llama.cpp 上の Qwen 27B と Gemma 4 E2B）。
 
 [DeepSeek Harness（dsh）](https://github.com/deepseek-ai/deepseek-harness)のプラグイン、Hermes Agent の記憶プロバイダ、`127.0.0.1` の小さな HTTP サイドカーの3つの形で使える。
 
@@ -38,14 +38,19 @@
    - 発言の窓と事実を順位付けし、RRF でまとめる。
    - *ほかの*セッションの発言から、良いものを 2,048 トークンまで選ぶ。
 
-   日付の順に並べ、今日の日付と「いちばん新しい発言が今の事実」という規則を添えて渡す。既定では並べ替え（rerank）はしない。
-5. **ツール**：`memory_search`（Hermes では `tsuzuki_search`）は、今のセッションも含めて全セッションを検索する。`memory_forget`（Hermes では `tsuzuki_forget`）は記憶を消す（「プライバシー」）。
+   日付の順に並べ、今日の日付と「いちばん新しい発言が今の事実」という規則を添えて渡す。既定では並べ替え（rerank）はしない。発言の本文は `<memory>` のブロックを閉じたり開いたりできず、2 行目からは字下げされるので、保存された発言が指示やほかの抜粋のふりをすることはできない（評価のときは、複数行の発言を字下げせずに渡していた）。
+5. **ツール**：`memory_search`（Hermes では `tsuzuki_search`）は、今のセッションも含めて全セッションを検索する（並べ替えは、オンにしない限りしない）。`memory_forget`（Hermes では `tsuzuki_forget`）は記憶を消す。**既定でオフ**（「プライバシー」）。
 
 ## 結果（事前登録）
 
 判定の規則は、回答を1つも作る前に文書で固定した。下の数字は `results/eval/memory/` の報告ファイルから写した。
 
 プラグインの既定値は、評価した設定 **P**。探索の回（U1、30 問）で決め、U2 で、まだ使っていない問題で確かめた。
+
+**まとめ**
+- **小さいローカルモデル**（Gemma 4 E2B）では、全履歴を文脈に入れるより記憶の方が正しく答える。英語 +0.150（E1、同等以上）、日本語 +0.275（J1、上回る）。
+- **大きいローカルモデル**（Qwen 27B）では、英語で同じ書式の全履歴（約 11.6 万トークン）より +0.225（U2-AT、上回る）。約 4.5 万トークンの日本語の履歴では、入力 1/14・約 17 倍速で、正確さは誤差の範囲で同じ（J1-Q、判定不能）。
+- **保存したセッションが数千になると**精度は落ちる。事実（ローカルのチャットモデルを設定すれば既定でオン）で一部を取り戻せる。枠を広げることと、小さいモデルによる並べ替えでは戻らない（S2、S3）。
 
 **条件**
 - **データ**：[LongMemEval](https://github.com/xiaowu0162/LongMemEval)-S（cleaned 版）。新しい 40 問を、ID と種類だけを見て、固定の seed で選んだ（knowledge-update 10、temporal-reasoning 10、multi-session 10、single-session 6、abstention 4）。履歴は合計 1,862 セッション。問題の ID は `results/eval/memory/longmemeval-u2-plan.json`。
@@ -117,11 +122,43 @@ AT の回答は Claude が単独で採点したので、設定は伏せられな
 - **主：E2B-P − E2B-AT**：+0.275 [+0.150, +0.425]、**上回る**（11 勝 / 0 敗 / 29 同）。製品の目安を満たす。
 - 記憶は 40 問すべてで答えの会話を含んでいた（1.00）。日本語でも検索は崩れず、外したのは読み取りと推論（日付の計算 0.12、複数の会話の数え上げ 0.25）。
 - 副次の採点者（Claude、条件名を伏せて）：0.700 対 0.425、+0.275 [+0.125, +0.425]、上回る。一致 0.850、κ 0.71。
-- 自作のテストは本物の会話より整っている。方法が日本語にも通じるかの確認として読むこと（ベンチマークの点数ではない）。同じテストを Qwen 27B で全部行う J1-Q（[`docs/MEMORY_JA_J1Q_PREREG.md`](docs/MEMORY_JA_J1Q_PREREG.md)）を実行中。
+- 自作のテストは本物の会話より整っている。方法が日本語にも通じるかの確認として読むこと（ベンチマークの点数ではない）。
+
+### J1-Q：同じ日本語のテストを、全部 Qwen 27B で
+
+J1 の規則で行うことになった追試（[`docs/MEMORY_JA_J1Q_PREREG.md`](docs/MEMORY_JA_J1Q_PREREG.md)、実行記録 [`docs/MEMORY_JA_J1Q_RUNLOG.md`](docs/MEMORY_JA_J1Q_RUNLOG.md)）。記憶づくりも答える役も Qwen3.8 27B。
+
+| 条件 | 正答率 | 入力トークン | 回答時間 |
+|---|---:|---:|---:|
+| Qwen-P（記憶） | 0.725 | 3,205 | 5.8 秒 |
+| Qwen-AT（全履歴、同じ書式） | 0.750 | 45,311 | 99.4 秒 |
+
+- **主：Qwen-P − Qwen-AT**：−0.025 [−0.100, +0.050]、**判定不能**（1 勝 / 2 敗 / 37 同）。
+- 大きいモデルは、約 4.5 万トークンの日本語の履歴を、記憶と同じくらいよく読める。ここでの記憶の利点は正確さではなく費用（入力 1/14、約 17 倍速）。小さいモデル（J1）では、記憶の方がはっきり正確だった。
+- 副次の採点者（Claude、条件名を伏せて）：0.825 対 0.850、−0.025 [−0.100, +0.050]、判定不能。一致 0.900、κ 0.71。
+
+### S2 と S3：保存したセッション 5,000、答える役は Gemma 4 E2B
+
+規模試験（下）では、関係のない履歴が増えるほど想起が落ちた。S2 と S3 は、保存したセッション 5,000（約 5.2 万発言）での**回答**を、Gemma 4 E2B が答える形で測った。問題は、まだ使っていない LongMemEval-S の 60 問（棄権を除く種類ごとに 10）。答えの会話は元の日付のまま、詰め物の会話の間に入れた（[`docs/MEMORY_SCALE_S2_PREREG.md`](docs/MEMORY_SCALE_S2_PREREG.md)、[`docs/MEMORY_SCALE_S3_PREREG.md`](docs/MEMORY_SCALE_S3_PREREG.md)、実行記録 [`docs/MEMORY_SCALE_S3_RUNLOG.md`](docs/MEMORY_SCALE_S3_RUNLOG.md)）。
+
+| 5,000 セッションでの想起 | 正答率 | 想起に答えの発言 | 窓だけとの差 |
+|---|---:|---:|---|
+| 発言の窓だけ（チャットモデルなしの dsh の想起） | 0.317 | 0.483 | |
+| 枠 8,192 | 0.267 | 0.733 | −0.050 [−0.133, +0.033]、判定不能 |
+| E2B が上位 30 窓を並べ替える（製品のオプション） | 0.267 | 0.417 | −0.050 [−0.133, +0.017]、判定不能 |
+| E2B が上位 100 窓を並べ替える | 0.250 | 0.350 | −0.067 [−0.133, −0.017]、**悪化** |
+| 質問の言葉から日付で絞る | 0.317 | 0.483 | ±0（効いたのは 60 問中 4 問） |
+| **事実あり：設定 P（S3）** | **0.400** | 0.667 | +0.083 [−0.017, +0.183]、判定不能、7 勝 / 2 敗 |
+| 参考：窓だけ、50 セッション | 0.433 | 0.850 | |
+
+- 小さいモデルには、量を増やしても効かない。枠 8,192 では答えが E2B の目の前に来ることは増えたが、答えは悪くなった。並べ替え役としての E2B は、密な検索の順より悪い候補を選んだ。そのため**並べ替えは既定でオフ**（`memory_search` も）。
+- 事実（設定 P。事実の抜き出しと更新の判定も E2B 自身）は、どの比較でも同じ向きだった。ここで +0.083、別の 60 問で +0.050、50 セッションで +0.067（合わせて 19 勝 7 敗）。ただし、どの区間も 0 をまたぐ。5,000 セッションでの P（0.400）は、50 セッションでの窓だけ（0.433）に近い。
+- 5,000 セッション分の事実づくりは、M5 Max の E2B で約 3.7 時間（7,074 区間）。ふだんの利用では、会話のあとに裏で行う（1 会話あたり約 10〜14 秒）。
+- 副次の採点者（Claude、条件名を伏せた 90 件の抜き取り）：一致 0.978（κ 0.95、S2）、0.944（κ 0.89、S3）。
 
 全部の表（V1024R・T2048 の比較つき）：
-- [`results/eval/memory/longmemeval-u2-report.md`](results/eval/memory/longmemeval-u2-report.md)、[`longmemeval-u2-at-report.md`](results/eval/memory/longmemeval-u2-at-report.md)、[`longmemeval-e1-report.md`](results/eval/memory/longmemeval-e1-report.md)
-- [`longmemeval-u2-claude-judge.md`](results/eval/memory/longmemeval-u2-claude-judge.md)、[`longmemeval-u2-at-claude-judge.md`](results/eval/memory/longmemeval-u2-at-claude-judge.md)、[`longmemeval-e1-claude-judge.md`](results/eval/memory/longmemeval-e1-claude-judge.md)
+- [`results/eval/memory/longmemeval-u2-report.md`](results/eval/memory/longmemeval-u2-report.md)、[`longmemeval-u2-at-report.md`](results/eval/memory/longmemeval-u2-at-report.md)、[`longmemeval-e1-report.md`](results/eval/memory/longmemeval-e1-report.md)、[`j1-report.md`](results/eval/memory/j1-report.md)、[`j1q-report.md`](results/eval/memory/j1q-report.md)、[`s2-report.md`](results/eval/memory/s2-report.md)、[`s3-report.md`](results/eval/memory/s3-report.md)。探索：[`scale-diagnosis.md`](results/eval/memory/scale-diagnosis.md)、[`scr1-report.md`](results/eval/memory/scr1-report.md)
+- [`longmemeval-u2-claude-judge.md`](results/eval/memory/longmemeval-u2-claude-judge.md)、[`longmemeval-u2-at-claude-judge.md`](results/eval/memory/longmemeval-u2-at-claude-judge.md)、[`longmemeval-e1-claude-judge.md`](results/eval/memory/longmemeval-e1-claude-judge.md)、[`j1-claude-judge.md`](results/eval/memory/j1-claude-judge.md)、[`j1q-claude-judge.md`](results/eval/memory/j1q-claude-judge.md)、[`s2-claude-judge.md`](results/eval/memory/s2-claude-judge.md)、[`s3-claude-judge.md`](results/eval/memory/s3-claude-judge.md)
 - 事前登録：[`docs/MEMORY_LONGMEMEVAL_U2_PREREG.md`](docs/MEMORY_LONGMEMEVAL_U2_PREREG.md)、[`docs/MEMORY_LONGMEMEVAL_U2_AT_PREREG.md`](docs/MEMORY_LONGMEMEVAL_U2_AT_PREREG.md)、[`docs/MEMORY_LONGMEMEVAL_E1_PREREG.md`](docs/MEMORY_LONGMEMEVAL_E1_PREREG.md)
 
 ### 事前登録について
@@ -131,12 +168,12 @@ AT の回答は Claude が単独で採点したので、設定は伏せられな
 ## まだ示していないこと
 
 - **コーディングと作業中の記憶**：`working.enabled` は、ツールの呼び出しと結果を保存し、dsh が文脈を要約したあとで、要約から落ちた細部を戻す。**実験的で、既定はオフ**。事前登録した試験 C1（[`docs/MEMORY_CODING_C1_PREREG.md`](docs/MEMORY_CODING_C1_PREREG.md)）は、**判定を出さずに打ち切った**。dsh 自身の要約が、ローカルの Qwen 27B と 32k の窓では安定せず、記憶ではなく要約を測ることになるため。
-- **自作テスト以外の日本語**：J1（上）は小さな自作テストで、本物の日本語の利用者の会話は測っていない。同じテストの Qwen 27B 版（J1-Q）は実行中。
-- **数千セッション**：取り出しだけの規模試験（[`results/eval/memory/scale-report.md`](results/eval/memory/scale-report.md)。LongMemEval-S のセッション、発言の窓だけ、事実なし、rerank なし）で、60 問のうち答えの発言が想起に入った割合は、保存したセッションが 50 で 0.883、500 で 0.717、2,000 で 0.667、5,000 で 0.517 だった（5,000 − 50：−0.367 [−0.483, −0.250]）。**関係のない履歴が増えるほど精度は落ちる。** 事実・rerank・枠の拡大で戻るかは測っていない。
+- **自作テスト以外の日本語**：J1 と J1-Q（上）は小さな自作テストで、本物の日本語の利用者の会話は測っていない。
+- **数千セッション**：取り出しだけの規模試験（[`results/eval/memory/scale-report.md`](results/eval/memory/scale-report.md)。LongMemEval-S のセッション、発言の窓だけ、事実なし、rerank なし）で、60 問のうち答えの発言が想起に入った割合は、保存したセッションが 50 で 0.883、500 で 0.717、2,000 で 0.667、5,000 で 0.517 だった（5,000 − 50：−0.367 [−0.483, −0.250]）。**関係のない履歴が増えるほど精度は落ちる。** S2 と S3（上）で 5,000 セッションでの回答を測った。事実で一部を取り戻せ、枠の拡大と小さいモデルの並べ替えでは戻らなかった。5,000 セッションより先は測っていない。
 - **本当の長期利用**：試験はベンチマークの履歴で、何か月分もの本物の会話ではない。
-- **ほかのハードウェアと Mac 以外の経路**：すべて Mac 1 台で測った。Linux や Windows で使う Ollama の埋め込みの経路は、**測っていない**。Ollama の EmbeddingGemma 300m は、fp32 のエンジンと数値が違う可能性がある。EmbeddingGemma 2 は設定 P で測っていない（LoCoMo の探索では、取り出しが 300m より recall@10 で 0.03 低かった）。
+- **ほかのハードウェアと Mac 以外の経路**：すべて Mac 1 台で測った。llama.cpp の埋め込みの経路（EmbeddingGemma 300m、Q8_0 の GGUF）は、その Mac で fp32 のエンジンと比べた（[`scripts/eval/scale/llamacpp_parity.mjs`](scripts/eval/scale/llamacpp_parity.mjs)）。発言の窓 200 と質問 60 で cos ≥ 0.9997、上位 10 件の重なり 0.992、規模試験の想起は 500 セッションで同じ（0.717 と 0.717）、5,000 セッションでも同じ（0.517 と 0.517）。Linux や Windows では**まだ動かしていない**。Ollama の経路は**測っていない**。Ollama の EmbeddingGemma 300m は、fp32 のエンジンと数値が違う可能性がある。EmbeddingGemma 2 は設定 P で測っていない（LoCoMo の探索では、取り出しが 300m より recall@10 で 0.03 低かった）。
 - **ほかのモデル**：U2 では、回答・事実の抽出・採点がすべて同じローカルの Qwen3.8-27B Q4_K_M。E1 は答える役だけを替えた。長い文脈に強いクラウドのモデルは試していない。そうしたモデルなら、全履歴との差は縮むか、逆になるかもしれない。
-- **保存のときのコスト**：回答時間には、保存のときの裏の作業（チャットモデルによる事実の抽出と更新の判定、埋め込み）を含めていない。全履歴の時間は、llama.cpp のホストのプロンプトキャッシュを切って測った。
+- **保存のときのコスト**：回答時間には、保存のときの裏の作業（チャットモデルによる事実の抽出と更新の判定、埋め込み。S3 では M5 Max の Gemma 4 E2B で 1 会話あたり約 10〜14 秒）を含めていない。全履歴の時間は、llama.cpp のホストのプロンプトキャッシュを切って測った。
 - **公表されている LongMemEval の点との比較**：比べられない。公表値は GPT-4o の採点と別のモデルを使っている。
 - **精度**：40 問なので区間が広い。U2 の主判定は、答えたのと同じモデル。副次の採点はそれを確かめるためのもの。
 
@@ -146,7 +183,7 @@ AT の回答は Claude が単独で採点したので、設定は伏せられな
 - **事実の抽出に使うチャットの接続先**：OpenAI 互換で、JSON スキーマの出力ができるもの。検証したのは llama.cpp の `llama-server` と Qwen3.8-27B Q4_K_M。無くても発言の窓だけで動くが、それは評価した設定 P **ではない**。
 - **埋め込み**：次のどちらか。
   - **Apple シリコンの Mac**（評価した経路）：このリポジトリのエンジンで EmbeddingGemma 300m を fp32 で動かす。Xcode、CMake、Python 3.13、[uv](https://github.com/astral-sh/uv) が要る。
-  - **ほかのマシン**：[Ollama](https://ollama.com) の `embeddinggemma`。
+  - **ほかのマシン**：llama.cpp の `llama-server` と EmbeddingGemma 300m の GGUF（エンジンと比べて確認済み）、または [Ollama](https://ollama.com) の `embeddinggemma`（測っていない）。
 - **Hermes Agent で使うとき**：Hermes に同梱の Node（`~/.hermes/node/bin/node`）か、上の条件を満たす Node。
 
 ## 入れ方
@@ -182,7 +219,16 @@ cmake --build build -j 8
 
 エンジンを自分で起動する必要はない。dsh のプロバイダとサイドカーが、必要なときに `127.0.0.1:8299` で起動する。
 
-**Linux、Windows、エンジンを使わない Mac**：Ollama でモデルを取得する（これでも Gemma の利用規約に同意することになる）。
+**Linux、Windows、エンジンを使わない Mac：llama.cpp**（エンジンと比べて確認済み。「まだ示していないこと」）。GGUF を取得し（これでも Gemma の利用規約に同意することになる。sha256 `b5ce9d77a3fc4b3b39ccb5643c36777911cc4eb46a66962eadfa3f5f60490d63`、334 MB）、埋め込みのサーバーをポート 8081 で起動する。
+
+```bash
+hf download ggml-org/embeddinggemma-300M-GGUF embeddinggemma-300M-Q8_0.gguf --local-dir models
+llama-server -m models/embeddinggemma-300M-Q8_0.gguf --embedding -c 8192 -np 4 -b 2048 -ub 2048 --host 127.0.0.1 --port 8081
+```
+
+`-c 8192 -np 4` で 4 つのスロットそれぞれに、EmbeddingGemma の入力の上限の 2,048 トークンを割り当て、`-ub 2048` で 1 つの入力がスロットいっぱいまで入る。（`hf` は `pip install huggingface_hub` で入る。モデルのページから直接ダウンロードしてもよい。）8081 にしておくと、8080 をチャットサーバーに使える。
+
+**または Ollama**（エンジンとは比べていない。取得すると Gemma の利用規約に同意することになる）：
 
 ```bash
 ollama pull embeddinggemma
@@ -218,13 +264,13 @@ dsh plugin --profile <名前> add "$dist/dsh-text-embeddings-0.1.0.tgz" "$dist/d
     llm: { baseUrl: http://127.0.0.1:8080/v1 }   # 手元のチャットサーバー
 ```
 
-**Ollama を使うとき**は、`dsh-text-embeddings-tsuzuki-0.1.0.tgz` の代わりに `dsh-text-embeddings-openai-0.1.0.tgz` を入れ、次の行を使う。
+**llama.cpp か Ollama を使うとき**は、`dsh-text-embeddings-tsuzuki-0.1.0.tgz` の代わりに `dsh-text-embeddings-openai-0.1.0.tgz` を入れ、次の行を使う（`baseUrl` は、上の llama.cpp なら `http://127.0.0.1:8081/v1`、Ollama なら `http://127.0.0.1:11434/v1`）。
 
 ```yaml
 - id: text-embeddings-openai
   disabled: false
   config:
-    baseUrl: http://127.0.0.1:11434/v1
+    baseUrl: http://127.0.0.1:8081/v1   # llama.cpp。Ollama なら http://127.0.0.1:11434/v1
     model: embeddinggemma
     dimensions: 768
     taskPrefixes:
@@ -242,13 +288,13 @@ dsh plugin --profile <名前> add "$dist/dsh-text-embeddings-0.1.0.tgz" "$dist/d
 
 ### 3b. DeepSeek Harness のデスクトップアプリ
 
-アプリを終了してから `bash dsh-plugins/scripts/install-desktop.sh` を実行する（埋め込みに Ollama を使うときは引数に `ollama`）。スクリプトはプロファイルのファイルをバックアップし、元に戻す方法を表示する。記憶は `$DSH_HOME/tsuzuki`（既定は `~/.dsh/tsuzuki`）に保存される。
+アプリを終了してから `bash dsh-plugins/scripts/install-desktop.sh` を実行する（埋め込みに llama.cpp（ポート 8081）か Ollama を使うときは、引数に `llamacpp` か `ollama`。2 つ目の引数で別のローカルの URL を指定できる）。スクリプトはプロファイルのファイルをバックアップし、元に戻す方法を表示する。記憶は `$DSH_HOME/tsuzuki`（既定は `~/.dsh/tsuzuki`）に保存される。
 
 ### 3c. Hermes Agent
 
 先に：
 - **プラグインをビルドする**（手順 1）。サイドカーは Hermes に同梱の Node（`~/.hermes/node/bin/node`）で動く。無ければ `PATH` の `node`。変えるときは、プロファイルの `config.yaml` の `memory.tsuzuki.node`。
-- **埋め込み**：Mac のエンジンをビルドしてあれば（手順 2）、導入スクリプトはそれを使う。なければ Ollama の設定を書き、そう表示する。Ollama が `127.0.0.1:11434` で動き、`embeddinggemma` を取得済みであること。
+- **埋め込み**：Mac のエンジンをビルドしてあれば（手順 2）、導入スクリプトはそれを使う。なければ Ollama の設定を書き、そう表示する。Ollama が `127.0.0.1:11434` で動き、`embeddinggemma` を取得済みであること。llama.cpp（手順 2）なら `--embedding llamacpp`（ポート 8081。別のローカルのポートは `--embedding-url`）。
 - **事実の抽出**：導入スクリプトは、プロファイル自身のモデルの接続先（`model.base_url`）を使う。ただし、このマシンの上にあるときだけ（「プライバシー」）。それ以外なら、何も変えずに止まる。`--no-chat`（発言の窓だけ。評価した設定 P ではない）か、会話の本文がそこへ送られてよければ `--allow-remote-chat` を付けて実行し直す。
 
 Hermes を終了してから実行する（そのプロファイルの `config.yaml` が先にあること。`default` は Hermes のホームそのもの）。
@@ -273,7 +319,7 @@ node dsh-plugins/packages/tsuzuki/lib/server.js --config <フォルダ>/config.j
 
 （pack した `dsh-tsuzuki` を入れると、同じサーバーが `tsuzuki-memory` コマンドになる。`--config` が無ければ `~/.tsuzuki/config.json` を使う。）
 
-初回に、データの横へ既定の `config.json` を書く。ポート `8297`、埋め込みは Ollama の `embeddinggemma`、**チャットモデルなし**。評価した設定にするには、`chat.baseUrl` と `chat.model` を書く（llama.cpp 以外のサーバーなら `chat.server: "openai"`）。Ollama の代わりに Mac のエンジンを使うときは、次を足す。
+初回に、データの横へ既定の `config.json` を書く。ポート `8297`、埋め込みは Ollama の `embeddinggemma`、**チャットモデルなし**。評価した設定にするには、`chat.baseUrl` と `chat.model` を書く（llama.cpp 以外のサーバーなら `chat.server: "openai"`）。llama.cpp の埋め込み（手順 2）なら `"embedding": {"baseUrl": "http://127.0.0.1:8081/v1", "model": "embeddinggemma"}` にする。Mac のエンジンを使うときは、次を足す。
 
 ```json
 "embedding": {"engine": {"engineRoot": "/abs/repo", "modelDir": "/abs/repo/models/embeddinggemma-300m", "modelName": "embeddinggemma-300m", "port": 8299}}
@@ -290,9 +336,9 @@ node dsh-plugins/packages/tsuzuki/lib/server.js --config <フォルダ>/config.j
 | `POST /v1/memory/flush` | `{session?}` | `{ok}` |
 | `POST /v1/memory/forget` | `{session}`、`{before}`、`{all: true}` のどれか1つ | `{turns, units, facts, segments, links, vacuumed}` |
 
-`Content-Type: application/json` で送る。JSON のオブジェクトでない本文は `400`。
+`Content-Type: application/json` で送る。`config.json` に `token` があれば（サイドカー自身や Hermes の導入スクリプトが書いた設定には、無作為のトークンが入る）、`Authorization: Bearer <トークン>` も付ける。JSON のオブジェクトでない本文は `400`、8 MB を超える本文は `413`。
 
-**モデルが止まった・応答しないとき**も、長くは待たせない。想起は約 3.5 秒であきらめる（クエリの埋め込みに 3 秒。時間切れのあと 30 秒は、クエリをすぐ失敗にする）。検索の rerank は 15 秒で打ち切る（チャットサーバーがまったく応答しないときはすぐに省き、密な検索の順で返す）。埋め込みモデルが止まっていても発言は保存し、戻りしだい索引する。
+**モデルが止まった・応答しないとき**も、長くは待たせない。想起は約 3.5 秒であきらめる（クエリの埋め込みに 3 秒。時間切れのあと 30 秒は、クエリをすぐ失敗にする）。検索の rerank は、オンにしたときは 15 秒で打ち切る（チャットサーバーがまったく応答しないときはすぐに省き、密な検索の順で返す）。埋め込みモデルが止まっていても発言は保存し、戻りしだい索引する。
 
 ## 主な設定
 
@@ -300,30 +346,33 @@ node dsh-plugins/packages/tsuzuki/lib/server.js --config <フォルダ>/config.j
 |---|---|---|
 | `recall.budgetTokens` | `2048` | 1 回に渡す記憶の大きさ（設定 P） |
 | `recall.rerank` | `false` | 想起をチャットモデルで並べ替える。ローカルの 27B では 1 回約 16 秒かかる |
+| `tool.rerank` / `search.rerank` | `false` | `memory_search` / `POST /v1/memory/search` をチャットモデルで並べ替える。オフなのは、Gemma 4 E2B では答えが悪くなり（S2）、設定 P も並べ替えないため |
 | `embedding.queryTimeoutMs` | `3000` | クエリの埋め込み 1 回の上限（想起、検索） |
 | `llm.rerankTimeoutMs` / `chat.rerankTimeoutMs` | `15000` | rerank 1 回の上限。超えたら密な検索の順を使う |
 | `llm.baseUrl` / `chat.baseUrl` | dsh：`http://127.0.0.1:8080/v1`、サイドカー：空 | 事実の抽出と rerank に使うチャットの接続先。空なら両方とも使わない |
 | `facts.updateLinks` | `true` | 保存のときに更新のリンクを付ける |
-| `capture.redactSecrets` | `true` | 保存の前に秘密情報を伏せ字にする |
+| `capture.redactSecrets` | `true` | 保存の前に秘密情報を伏せ字にする（クエリも） |
+| `tool.forget`（Hermes は `config.yaml` の `memory.tsuzuki.forget`） | `false` | 記憶を消すツールをモデルに渡す |
 | `working.enabled` | `false` | 長いコーディング作業のための作業中の記憶（実験的） |
 
 全部の一覧：[`dsh-plugins/packages/tsuzuki/README.md`](dsh-plugins/packages/tsuzuki/README.md)（英語）。
 
 ## プライバシー
 
-- **既定ではローカルだけ**：発言はローカルの SQLite のファイルに保存する。埋め込みは `127.0.0.1`（エンジンか Ollama）。事実は、自分で設定したチャットの接続先が作る。テレメトリーは無い。
+- **既定ではローカルだけ**：発言はローカルの SQLite のファイルに保存する。埋め込みは `127.0.0.1`（エンジン、llama.cpp か Ollama）。導入スクリプトは、ローカルの埋め込みの URL だけを受け付ける。事実は、自分で設定したチャットの接続先が作る。テレメトリーは無い。
 - **接続先をクラウドにすると、本文はマシンの外に出る**：`llm.baseUrl` / `chat.baseUrl` や埋め込みの `baseUrl` をリモートの API にすると、保存した発言と事実の抽出の区切りがそこへ送られる。
   - Hermes の導入スクリプトは、プロファイルのモデルの接続先を、このマシンの上にあるときだけ使う。リモートなら、`--allow-remote-chat`（か `--no-chat`）を付けない限り止まる。
   - dsh の `llm.baseUrl` の既定は `http://127.0.0.1:8080/v1`。そのポートが手元のチャットサーバーであることを確かめるか、設定する。
-- **秘密情報の伏せ字**（既定でオン）：保存・埋め込み・事実のモデルへの送信の前に、次を `[REDACTED:種類]` にする。API キー（OpenAI、Anthropic、GitHub、Hugging Face、AWS、Google、Slack、Stripe）、JWT と bearer トークン、URL の中の認証情報、`password:` の形の値（パスワード などの日本語のラベルも）、Luhn の検査に通るカード番号。パターンによるもので、誤検出を避ける側に寄せている。**珍しい形の秘密は漏れることがある。** 会話に秘密を貼って、これに頼らないこと。
-- **サイドカーにはログインが無い**：`127.0.0.1` だけで待ち受ける。このマシンのどのプログラムからも読める。`host` は `127.0.0.1` のままにする（ほかにするにはトークンが要る）。JSON でない要求、ブラウザの `Origin` 付きの要求、ループバック以外の `Host` の要求は拒む。
-- **忘れる**：エージェントは、ツール `memory_forget`（dsh）か `tsuzuki_forget`（Hermes）で記憶を消せる。ツールの説明で、消す範囲をユーザーに示し、確認を取ってから呼ぶようモデルに求めている。ほかのホストは `POST /v1/memory/forget`。範囲は、1つのセッション、ある日時より前に保存したものすべて、すべて、の3つ。消えるのは、発言、そこから作った窓と事実、更新のリンク。SQLite のファイルと WAL も書き直すので、ファイルからも本文が消える。発言を1件ずつ消す機能は無い。対象外：ホスト自身のセッション履歴、保存先のコピーやバックアップ、ローカルのサーバーがすでに見たもの。手ですべて消すときは、ホストを止めて記憶のフォルダを消す（dsh は `$DSH_HOME/tsuzuki`、Hermes は `<プロファイル>/tsuzuki`、サイドカーは `config.json` のあるフォルダ）。
+- **秘密情報の伏せ字**（既定でオン）：保存・埋め込み・事実のモデルへの送信の前に（クエリも）、次を `[REDACTED:種類]` にする。API キーとトークン（OpenAI、Anthropic、GitHub、GitLab、Hugging Face、AWS、Google、Slack と Slack の Webhook、Stripe、npm、SendGrid、Discord）、JWT、bearer と Basic の認証情報、URL の中の認証情報、`password:`・`OPENAI_API_KEY=`・`token:` の形の値（パスワード などの日本語のラベルも。「パスワードは …」も、値に数字か記号があれば）、Luhn の検査に通るカード番号。パターンによるもので、誤検出を避ける側に寄せている。**珍しい形の秘密は漏れることがある。** 会話に秘密を貼って、これに頼らないこと。
+- **サイドカー**：`127.0.0.1` だけで待ち受け、JSON でない要求、ブラウザの `Origin` 付きの要求、ループバック以外の `Host` の要求は拒む（ウェブページからは使えない）。サイドカー自身や Hermes の導入スクリプトが書いた設定には無作為の `token` が入り、そのファイルを読めないプログラム（ほかのユーザー、サンドボックス）は拒まれる。`token` の無い設定（手で書いたもの、この版より前のもの）では、このマシンのどのプログラムからも使える。ループバック以外の `host` にはトークンが要る。
+- **ファイル**：記憶のフォルダは自分だけが読める形（0700）で作り、SQLite のファイルと WAL は 0600、`config.json` も 0600。埋め込みのエンジン（`egemma-server`）も、同じ Origin・Host・JSON の検査をする。
+- **忘れる**：ツール `memory_forget`（dsh）と `tsuzuki_forget`（Hermes）は**既定でオフ**。ツールの説明で、消す範囲をユーザーに示し、確認を取ってから呼ぶようモデルに求めているが、それはモデルへのお願いで、ウェブページや貼り付けた文に覆されうるため。使うときは `tool.forget: true`（dsh）か、Hermes のプロファイルの `config.yaml` の `memory.tsuzuki.forget: true` にする。ほかのホストは `POST /v1/memory/forget`。範囲は、1つのセッション、ある日時より前に保存したものすべて、すべて、の3つ。消えるのは、発言、そこから作った窓と事実、更新のリンク。SQLite のファイルと WAL も書き直すので、ファイルからも本文が消える。発言を1件ずつ消す機能は無い。対象外：ホスト自身のセッション履歴、保存先のコピーやバックアップ、ローカルのサーバーがすでに見たもの。手ですべて消すときは、ホストを止めて記憶のフォルダを消す（dsh は `$DSH_HOME/tsuzuki`、Hermes は `<プロファイル>/tsuzuki`、サイドカーは `config.json` のあるフォルダ）。
 
 ## モデルのライセンス
 
 このリポジトリにも、そのパッケージにも、モデルの重みは入っていない。
 
-- **EmbeddingGemma 300m**（`google/embeddinggemma-300m`）：上の数字はすべてこのモデルによる。[Gemma の利用規約（Gemma Terms of Use）](https://ai.google.dev/gemma/terms)のもとで配布されている。**同梱しない**。Hugging Face か `ollama pull` で取得するときに、利用者が規約に同意する。サイドカーが Ollama に自動で取りに行くのは、`embedding.acceptModelLicense: true` にしたときだけ。
+- **EmbeddingGemma 300m**（`google/embeddinggemma-300m`）：上の数字はすべてこのモデルによる。[Gemma の利用規約（Gemma Terms of Use）](https://ai.google.dev/gemma/terms)のもとで配布されている。**同梱しない**。Hugging Face（元のモデルか GGUF）か `ollama pull` で取得するときに、利用者が規約に同意する。サイドカーが Ollama に自動で取りに行くのは、`embedding.acceptModelLicense: true` にしたときだけ。
 - **EmbeddingGemma 2**（`google/embeddinggemma-2`）：モデルカードのとおり Apache 2.0（Gemma の禁止用途ポリシーにも従う）。エンジンは対応している（既定は fp16）が、設定 P では測っていない。
 - **Gemma 4 E2B**（`google/gemma-4-E2B-it-qat-q4_0-gguf`。E1 の答える役、J1 のモデル）：Apache 2.0。
 - **チャットモデル**：自分で選ぶ。そのモデルのライセンスを確かめる。

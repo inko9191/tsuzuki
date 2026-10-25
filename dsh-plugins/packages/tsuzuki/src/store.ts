@@ -11,6 +11,7 @@
  * sharing the file) use to drop their caches and to discard work started before it.
  */
 import { DatabaseSync } from 'node:sqlite'
+import { chmodSync, closeSync, existsSync, openSync } from 'node:fs'
 import type { Fact, Turn, Unit } from './pipeline.ts'
 
 export interface StoredTurn extends Turn {
@@ -98,7 +99,13 @@ export class MemoryStore {
   private uncompacted = false
 
   constructor(readonly path: string) {
-    this.db = new DatabaseSync(path)
+    // Only the user may read the store (it holds whole conversations); SQLite gives the -wal and -shm files the
+    // database file's mode. Another process writing (dsh CLI and desktop share one store) is waited for, not an error.
+    if (path !== ':memory:') {
+      if (!existsSync(path)) closeSync(openSync(path, 'a', 0o600))
+      for (const f of [path, `${path}-wal`, `${path}-shm`]) if (existsSync(f)) chmodSync(f, 0o600)
+    }
+    this.db = new DatabaseSync(path, { timeout: 5000 })
     this.db.exec(SCHEMA)
   }
 

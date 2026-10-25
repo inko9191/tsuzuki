@@ -1,0 +1,40 @@
+{
+ "judge": "Claude Opus 5.5 (this session, blinded sheet of a random sample, graded before opening the Qwen labels)",
+ "sample": 90,
+ "agreement": {
+  "percent": 0.9777777777777777,
+  "cohen_kappa": 0.9508196721311475
+ },
+ "per_arm_on_sample": {
+  "A-5000": {
+   "n": 16,
+   "claude": 0.4375,
+   "qwen": 0.4375
+  },
+  "B-5000": {
+   "n": 13,
+   "claude": 0.3076923076923077,
+   "qwen": 0.23076923076923078
+  },
+  "C30-5000": {
+   "n": 19,
+   "claude": 0.3684210526315789,
+   "qwen": 0.3684210526315789
+  },
+  "C100-5000": {
+   "n": 10,
+   "claude": 0.2,
+   "qwen": 0.1
+  },
+  "D-5000": {
+   "n": 19,
+   "claude": 0.3157894736842105,
+   "qwen": 0.3157894736842105
+  },
+  "A-50": {
+   "n": 13,
+   "claude": 0.46153846153846156,
+   "qwen": 0.46153846153846156
+  }
+ }
+}

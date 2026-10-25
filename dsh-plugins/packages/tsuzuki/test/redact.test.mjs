@@ -40,3 +40,30 @@ test('ordinary text is untouched', () => {
     assert.deepEqual(r.found, {})
   }
 })
+
+test('env-style names, more token formats and "my password is" are redacted (2026-10-25 review)', () => {
+  for (const [input, expected] of [
+    ['OPENAI_API_KEY=abcd1234efgh5678', 'OPENAI_API_KEY=[REDACTED:SECRET_VALUE]'],
+    ['DB_PASSWORD=hunter2', 'DB_PASSWORD=[REDACTED:SECRET_VALUE]'],
+    ['SECRET_KEY = "django-insecure-x1"', 'SECRET_KEY = "[REDACTED:SECRET_VALUE]"'],
+    ['AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG', 'AWS_SECRET_ACCESS_KEY=[REDACTED:SECRET_VALUE]'],
+    ['token: 9f8e7d6c5b4a', 'token: [REDACTED:SECRET_VALUE]'],
+    ['Authorization: Basic dXNlcjpwYXNzd29yZDEyMw==', 'Authorization: Basic [REDACTED:BASIC_AUTH]'],
+    ['glpat-abcdefghijklmnopqrstu', '[REDACTED:GITLAB_TOKEN]'],
+    ['npm_abcdefghijklmnopqrstuvwxyz0123456789', '[REDACTED:NPM_TOKEN]'],
+    ['whsec_abcdefghijklmnopqrstuv', '[REDACTED:STRIPE_WEBHOOK_SECRET]'],
+    ['https://hooks.slack.com/services/T000/B000/XXXX', '[REDACTED:SLACK_WEBHOOK]'],
+    ['my password is hunter2', 'my password is [REDACTED:SECRET_VALUE]'],
+    ['パスワードは abc123 です', 'パスワードは [REDACTED:SECRET_VALUE] です'],
+  ]) assert.equal(redact(input).text, expected, input)
+  for (const text of ['the password is required', 'pwd: /Users/me/project', 'set max_tokens = 1024', 'The token count is high.'])
+    assert.equal(redact(text).text, text, text)
+})
+
+test('redaction stays linear on long adversarial input (2026-10-25 review)', () => {
+  for (const text of ['password' + ' '.repeat(120_000), 'password' + '\t'.repeat(120_000), 'de-'.repeat(40_000), 'a_'.repeat(60_000)]) {
+    const t0 = performance.now()
+    redact(text)
+    assert.ok(performance.now() - t0 < 500, `took ${(performance.now() - t0).toFixed(0)} ms`)
+  }
+})

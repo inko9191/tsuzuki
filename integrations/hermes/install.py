@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Install the tsuzuki provider into Hermes profiles (stop Hermes first; restart it afterwards).
 
-    python3 integrations/hermes/install.py [--home DIR] [--allow-remote-chat | --no-chat] <profile> [<profile> ...]
+    python3 integrations/hermes/install.py [--home DIR] [--allow-remote-chat | --no-chat]
+        [--embedding auto|engine|ollama|llamacpp] [--embedding-url URL] <profile> [<profile> ...]
 
 <profile> is ``default`` (the Hermes home itself) or the name of a profile under ``<home>/profiles``; it must already
 have a ``config.yaml`` (start Hermes with it once). ``--home`` is the Hermes home (default ``~/.hermes``).
@@ -10,8 +11,11 @@ Per profile: back up config.yaml, copy the plugin to <profile>/plugins/tsuzuki, 
 ``memory.provider: tsuzuki`` (+ the sidecar path, and Hermes' bundled node when there is one), and write
 <profile>/tsuzuki/config.json:
 
-- embeddings: this repository's EmbeddingGemma 300m engine (started on demand on port 8299) when it is built here
-  (step 2 of the README); otherwise Ollama's ``embeddinggemma`` on 127.0.0.1:11434, and the script says so;
+- embeddings (``--embedding``, default ``auto``): this repository's EmbeddingGemma 300m engine (started on demand on
+  port 8299) when it is built here (step 2 of the README); otherwise Ollama's ``embeddinggemma`` on 127.0.0.1:11434,
+  and the script says so. ``llamacpp``: a llama.cpp ``llama-server --embedding`` with the EmbeddingGemma GGUF
+  (default http://127.0.0.1:8081/v1). ``--embedding-url`` sets the endpoint for ``ollama`` or ``llamacpp``; it must be
+  on this machine (text is sent there);
 - facts: the profile's own model endpoint (``model.base_url``), but only when it is on this machine (loopback).
   Conversation text is sent there; a remote endpoint needs ``--allow-remote-chat``. ``--no-chat`` turns facts off.
 
@@ -25,6 +29,7 @@ import hashlib
 import json
 import os
 import re
+import secrets
 import shutil
 import sys
 import time
@@ -37,6 +42,8 @@ PLUGIN = REPO / "integrations" / "hermes" / "tsuzuki"
 SERVER_JS = REPO / "dsh-plugins" / "packages" / "tsuzuki" / "lib" / "server.js"
 DEFAULT_PORT = 8297
 ENGINE_PORT = 8299
+OLLAMA_URL = "http://127.0.0.1:11434/v1"
+LLAMACPP_URL = "http://127.0.0.1:8081/v1"
 LOOPBACK = {"127.0.0.1", "localhost", "::1"}
 
 
@@ -45,7 +52,8 @@ def profile_home(name: str, root: Path) -> Path:
 
 
 def profile_port(data_dir: Path) -> int:  # same rule as tsuzuki.profile_port
-    return DEFAULT_PORT + int(hashlib.sha256(str(data_dir.resolve()).encode()).hexdigest(), 16) % 500
+    port = DEFAULT_PORT + int(hashlib.sha256(str(data_dir.resolve()).encode()).hexdigest(), 16) % 500
+    return DEFAULT_PORT + 500 if port == ENGINE_PORT else port  # never the embedding engine's port
 
 
 # -- reading config.yaml ------------------------------------------------------------------------
@@ -189,7 +197,61 @@ def plan(name: str, root: Path, *, allow_remote_chat: bool = False, no_chat: boo
     return Plan(name, home, config, text, chat_url, chat_model)
 
 
-def install(p: Plan, root: Path, repo: Path = REPO) -> list[str]:
+def with_provider(text: str, settings: dict[str, str]) -> str:
+    """config.yaml text with ``memory.provider: tsuzuki`` and the provider's settings, written at the memory
+    block's own indentation. An existing ``provider:`` line (Hermes writes ``provider: ''``) is replaced, not
+    shadowed by a second key."""
+    lines = text.splitlines(keepends=True)
+    start = next((i for i, l in enumerate(lines) if re.match(r"^memory:[ \t]*(#.*)?$", l.rstrip("\n"))), None)
+    if start is None:
+        body = ["memory:\n"]
+        indent = "  "
+    else:
+        end = next((j for j in range(start + 1, len(lines)) if lines[j].strip() and not lines[j].startswith((" ", "\t", "#"))),
+                   len(lines))
+        children = [l for l in lines[start + 1:end] if l.strip() and not l.lstrip().startswith("#")]
+        indent = re.match(r"^[ \t]*", children[0]).group(0) if children else "  "
+    block = [f"{indent}provider: tsuzuki\n", f"{indent}tsuzuki:\n"]
+    block += [f"{indent}{indent}{k}: {json.dumps(v)}\n" for k, v in settings.items()]
+    if start is None:
+        return text.rstrip("\n") + "\n\n" + "".join(body + block)
+    kept, skipping = [], False
+    for l in lines[start + 1:end]:
+        if skipping and (not l.strip() or len(l) - len(l.lstrip()) > len(indent)):
+            continue  # inside an earlier tsuzuki block, replaced by the new one
+        skipping = False
+        if re.match(rf"^{re.escape(indent)}provider:", l):
+            continue
+        if re.match(rf"^{re.escape(indent)}tsuzuki:", l):
+            skipping = True
+            continue
+        kept.append(l)
+    return "".join(lines[:start + 1] + block + kept + lines[end:])
+
+
+def read_config_text(text: str) -> dict[str, Any]:
+    try:
+        import yaml
+        value = yaml.safe_load(text)
+    except ImportError:
+        value = parse_simple_yaml(text)
+    return value if isinstance(value, dict) else {}
+
+
+def write_atomic(path: Path, text: str, mode: Optional[int] = None) -> None:
+    """Write through a temporary file in the same folder and rename it over *path* (no half-written file)."""
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, mode if mode is not None else (path.stat().st_mode & 0o777 if path.exists() else 0o600))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.replace(tmp, path)
+    finally:
+        if tmp.exists():
+            tmp.unlink()
+
+
+def install(p: Plan, root: Path, repo: Path = REPO, embedding_kind: str = "auto", embedding_url: str = "") -> list[str]:
     """Applies a checked plan; returns the lines to print."""
     home, text = p.home, p.text
     config_path = home / "config.yaml"
@@ -206,15 +268,15 @@ def install(p: Plan, root: Path, repo: Path = REPO) -> list[str]:
 
     node = bundled_node(root)
     if _memory_block(p.config).get("provider") != "tsuzuki":
-        lines = ["  provider: tsuzuki", "  tsuzuki:", f"    server_js: {json.dumps(str(SERVER_JS))}"]
-        if node:  # otherwise the provider finds node itself (Hermes' bundled one, then PATH)
-            lines.append(f"    node: {json.dumps(str(node))}")
-        insert = "\n".join(lines) + "\n"
-        if re.search(r"^memory:[ \t]*(#.*)?$", text, re.M):
-            text = re.sub(r"^memory:[ \t]*(#.*)?\n", lambda m: m.group(0) + insert, text, count=1, flags=re.M)
-        else:
-            text = text.rstrip("\n") + "\n\nmemory:\n" + insert
-        config_path.write_text(text, encoding="utf-8")
+        settings = {"server_js": str(SERVER_JS), **({"node": str(node)} if node else {})}
+        text = with_provider(text, settings)
+        check = read_config_text(text)
+        before = {k: v for k, v in _memory_block(p.config).items() if k not in ("provider", "tsuzuki")}
+        after = _memory_block(check)
+        if after.get("provider") != "tsuzuki" or {k: v for k, v in after.items() if k not in ("provider", "tsuzuki")} != before:
+            raise SystemExit(f"{p.name}: could not add the provider to {config_path} without changing other settings; "
+                             f"nothing was changed (backup {backup.name}). Add it by hand (see integrations/hermes/README.md).")
+        write_atomic(config_path, text)
         out.append("  config.yaml: memory.provider = tsuzuki")
     else:
         out.append("  config.yaml: memory.provider is already tsuzuki (kept)")
@@ -223,27 +285,37 @@ def install(p: Plan, root: Path, repo: Path = REPO) -> list[str]:
                    "memory.tsuzuki.node in config.yaml.")
 
     data = home / "tsuzuki"
-    data.mkdir(parents=True, exist_ok=True)
+    data.mkdir(parents=True, exist_ok=True, mode=0o700)
     sidecar = data / "config.json"
     if sidecar.exists():
         out.append(f"  sidecar config kept: {sidecar} (delete it and re-run to regenerate)")
         return out
     missing = engine_missing(repo)
-    if missing:
-        embedding: dict[str, Any] = {"baseUrl": "http://127.0.0.1:11434/v1", "model": "embeddinggemma"}
-        out.append(f"  embeddings: Ollama embeddinggemma on 127.0.0.1:11434, because this repository's engine is not "
-                   f"built (missing: {', '.join(missing)}). Run 'ollama pull embeddinggemma' (that accepts the Gemma "
-                   "Terms of Use), or build the engine (README step 2), delete config.json and run this again.")
+    if embedding_kind == "engine" and missing:
+        raise SystemExit(f"--embedding engine: this repository's engine is not built (missing: {', '.join(missing)})")
+    if embedding_kind == "llamacpp":
+        url = embedding_url or LLAMACPP_URL
+        embedding = {"baseUrl": url, "model": "embeddinggemma"}
+        out.append(f"  embeddings: llama.cpp at {url} (llama-server --embedding with the EmbeddingGemma 300m GGUF; "
+                   "see the README)")
+    elif embedding_kind == "ollama" or (embedding_kind == "auto" and missing):
+        url = embedding_url or OLLAMA_URL
+        embedding = {"baseUrl": url, "model": "embeddinggemma"}
+        why = "" if embedding_kind == "ollama" else (f", because this repository's engine is not built (missing: "
+                                                     f"{', '.join(missing)})")
+        out.append(f"  embeddings: Ollama embeddinggemma at {url}{why}. Run 'ollama pull embeddinggemma' (that accepts "
+                   "the Gemma Terms of Use), or build the engine (README step 2), delete config.json and run this again.")
     else:
         embedding = {"engine": {"engineRoot": str(repo), "modelDir": str(repo / "models" / "embeddinggemma-300m"),
                                 "modelName": "embeddinggemma-300m", "port": ENGINE_PORT}}
         out.append(f"  embeddings: EmbeddingGemma 300m on this repository's engine (started on demand, port {ENGINE_PORT})")
     port = profile_port(data)
-    sidecar.write_text(json.dumps({
-        "port": port, "dataDir": str(data), "embedding": embedding,
+    # The token keeps other local programs (other users, sandboxes) out; the provider reads it from this file.
+    write_atomic(sidecar, json.dumps({
+        "port": port, "dataDir": str(data), "token": secrets.token_hex(24), "embedding": embedding,
         "chat": {"baseUrl": p.chat_url, "model": p.chat_model, "server": "openai"},
         "recall": {"budgetTokens": 2048},
-    }, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    }, indent=2, ensure_ascii=False) + "\n", mode=0o600)
     out.append(f"  sidecar config: {sidecar} (port {port})")
     if p.chat_url:
         remote = "" if is_loopback(p.chat_url) else " (NOT on this machine: conversation text is sent there)"
@@ -262,13 +334,20 @@ def main(argv: Optional[list[str]] = None) -> int:
     chat.add_argument("--allow-remote-chat", action="store_true",
                       help="use the profile's model endpoint for facts even when it is not on this machine")
     chat.add_argument("--no-chat", action="store_true", help="no fact extraction (memory on message windows only)")
+    ap.add_argument("--embedding", choices=["auto", "engine", "ollama", "llamacpp"], default="auto",
+                    help="where embeddings come from (default: this repository's engine when built, else Ollama)")
+    ap.add_argument("--embedding-url", default="", help="endpoint for --embedding ollama or llamacpp (on this machine)")
     args = ap.parse_args(argv)
+    if args.embedding_url and args.embedding not in ("ollama", "llamacpp"):
+        raise SystemExit("--embedding-url needs --embedding ollama or llamacpp")
+    if args.embedding_url and not is_loopback(args.embedding_url):
+        raise SystemExit(f"--embedding-url {args.embedding_url} is not on this machine: stored messages would be sent there")
     if not SERVER_JS.is_file():
         raise SystemExit(f"build the sidecar first (README step 1): {SERVER_JS} is missing")
     root = args.home.expanduser().resolve()
     plans = [plan(name, root, allow_remote_chat=args.allow_remote_chat, no_chat=args.no_chat) for name in args.profiles]
     for p in plans:
-        print("\n".join(install(p, root)))
+        print("\n".join(install(p, root, embedding_kind=args.embedding, embedding_url=args.embedding_url)))
     print("Restart Hermes. A sidecar that is already running reads config.json only when it starts: stop it first "
           "(see integrations/hermes/README.md).")
     return 0

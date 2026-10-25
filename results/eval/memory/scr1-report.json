@@ -1,0 +1,226 @@
+{
+ "A": {
+  "correct": 0.35,
+  "difference": 0.0,
+  "ci95": [
+   0.0,
+   0.0
+  ],
+  "sign": {
+   "wins": 0,
+   "losses": 0,
+   "ties": 60,
+   "n": 0,
+   "p_two_sided": 1.0
+  },
+  "hit": 0.5166666666666667,
+  "allSessions": 0.38333333333333336,
+  "evidenceShare": 0.34718281718281724,
+  "tokens": 1812.4666666666667,
+  "abstain": 0.03333333333333333,
+  "by_type": {
+   "knowledge-update": 0.4,
+   "multi-session": 0.1,
+   "single-session-assistant": 1.0,
+   "single-session-preference": 0.0,
+   "single-session-user": 0.6,
+   "temporal-reasoning": 0.0
+  }
+ },
+ "A1024": {
+  "correct": 0.2833333333333333,
+  "difference": -0.06666666666666667,
+  "ci95": [
+   -0.15,
+   0.0
+  ],
+  "sign": {
+   "wins": 1,
+   "losses": 5,
+   "ties": 54,
+   "n": 6,
+   "p_two_sided": 0.21875
+  },
+  "hit": 0.38333333333333336,
+  "allSessions": 0.26666666666666666,
+  "evidenceShare": 0.4563888888888889,
+  "tokens": 807.6,
+  "abstain": 0.11666666666666667,
+  "by_type": {
+   "knowledge-update": 0.3,
+   "multi-session": 0.0,
+   "single-session-assistant": 0.9,
+   "single-session-preference": 0.0,
+   "single-session-user": 0.5,
+   "temporal-reasoning": 0.0
+  }
+ },
+ "CTX80": {
+  "correct": 0.38333333333333336,
+  "difference": 0.03333333333333333,
+  "ci95": [
+   -0.05,
+   0.13333333333333333
+  ],
+  "sign": {
+   "wins": 5,
+   "losses": 3,
+   "ties": 52,
+   "n": 8,
+   "p_two_sided": 0.7265625
+  },
+  "hit": 0.6166666666666667,
+  "allSessions": 0.43333333333333335,
+  "evidenceShare": 0.31596206102978547,
+  "tokens": 1893.05,
+  "abstain": 0.0,
+  "by_type": {
+   "knowledge-update": 0.6,
+   "multi-session": 0.0,
+   "single-session-assistant": 0.9,
+   "single-session-preference": 0.0,
+   "single-session-user": 0.7,
+   "temporal-reasoning": 0.1
+  }
+ },
+ "CTR": {
+  "correct": 0.35,
+  "difference": 0.0,
+  "ci95": [
+   -0.1,
+   0.08333333333333333
+  ],
+  "sign": {
+   "wins": 4,
+   "losses": 4,
+   "ties": 52,
+   "n": 8,
+   "p_two_sided": 1.0
+  },
+  "hit": 0.5,
+  "allSessions": 0.35,
+  "evidenceShare": 0.30271132698570774,
+  "tokens": 1802.6666666666667,
+  "abstain": 0.016666666666666666,
+  "by_type": {
+   "knowledge-update": 0.4,
+   "multi-session": 0.0,
+   "single-session-assistant": 0.9,
+   "single-session-preference": 0.0,
+   "single-session-user": 0.7,
+   "temporal-reasoning": 0.1
+  }
+ },
+ "HUB": {
+  "correct": 0.36666666666666664,
+  "difference": 0.016666666666666666,
+  "ci95": [
+   -0.03333333333333333,
+   0.08333333333333333
+  ],
+  "sign": {
+   "wins": 2,
+   "losses": 1,
+   "ties": 57,
+   "n": 3,
+   "p_two_sided": 1.0
+  },
+  "hit": 0.48333333333333334,
+  "allSessions": 0.36666666666666664,
+  "evidenceShare": 0.3457545695045695,
+  "tokens": 1847.6833333333334,
+  "abstain": 0.05,
+  "by_type": {
+   "knowledge-update": 0.6,
+   "multi-session": 0.0,
+   "single-session-assistant": 1.0,
+   "single-session-preference": 0.0,
+   "single-session-user": 0.6,
+   "temporal-reasoning": 0.0
+  }
+ },
+ "CEN": {
+  "correct": 0.35,
+  "difference": 0.0,
+  "ci95": [
+   -0.06666666666666667,
+   0.06666666666666667
+  ],
+  "sign": {
+   "wins": 2,
+   "losses": 2,
+   "ties": 56,
+   "n": 4,
+   "p_two_sided": 1.0
+  },
+  "hit": 0.55,
+  "allSessions": 0.4,
+  "evidenceShare": 0.3522549699755582,
+  "tokens": 1812.7833333333333,
+  "abstain": 0.016666666666666666,
+  "by_type": {
+   "knowledge-update": 0.4,
+   "multi-session": 0.0,
+   "single-session-assistant": 1.0,
+   "single-session-preference": 0.0,
+   "single-session-user": 0.7,
+   "temporal-reasoning": 0.0
+  }
+ },
+ "ROLE": {
+  "correct": 0.35,
+  "difference": 0.0,
+  "ci95": [
+   -0.06666666666666667,
+   0.06666666666666667
+  ],
+  "sign": {
+   "wins": 2,
+   "losses": 2,
+   "ties": 56,
+   "n": 4,
+   "p_two_sided": 1.0
+  },
+  "hit": 0.4666666666666667,
+  "allSessions": 0.31666666666666665,
+  "evidenceShare": 0.3262402874902875,
+  "tokens": 1806.2833333333333,
+  "abstain": 0.03333333333333333,
+  "by_type": {
+   "knowledge-update": 0.4,
+   "multi-session": 0.1,
+   "single-session-assistant": 1.0,
+   "single-session-preference": 0.0,
+   "single-session-user": 0.6,
+   "temporal-reasoning": 0.0
+  }
+ },
+ "QA": {
+  "correct": 0.3333333333333333,
+  "difference": -0.016666666666666666,
+  "ci95": [
+   -0.06666666666666667,
+   0.03333333333333333
+  ],
+  "sign": {
+   "wins": 1,
+   "losses": 2,
+   "ties": 57,
+   "n": 3,
+   "p_two_sided": 1.0
+  },
+  "hit": 0.5,
+  "allSessions": 0.38333333333333336,
+  "evidenceShare": 0.3638963351463352,
+  "tokens": 1851.8833333333334,
+  "abstain": 0.03333333333333333,
+  "by_type": {
+   "knowledge-update": 0.3,
+   "multi-session": 0.1,
+   "single-session-assistant": 1.0,
+   "single-session-preference": 0.0,
+   "single-session-user": 0.6,
+   "temporal-reasoning": 0.0
+  }
+ }
+}

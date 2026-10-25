@@ -125,6 +125,35 @@ class InstallTests(unittest.TestCase):
             install.main(["--home", str(self.root), "x"])
         self.assertIn("honcho", str(caught.exception))
 
+    def test_an_empty_provider_line_and_four_space_indent_are_handled(self) -> None:
+        for name, block in (("empty", "memory:\n  memory_enabled: true\n  provider: ''\n  nudge_interval: 10\n"),
+                            ("wide", "memory:\n    memory_enabled: true\n    nudge_interval: 10\n")):
+            home = self.profile(name, text="model:\n  base_url: \"http://127.0.0.1:8080/v1\"\n" + block)
+            self.run_main(name)
+            config = install.read_config_text((home / "config.yaml").read_text())
+            self.assertEqual(config["memory"]["provider"], "tsuzuki", name)
+            self.assertEqual(config["memory"]["memory_enabled"], True, name)
+            self.assertEqual(config["memory"]["nudge_interval"], 10, name)
+            self.assertEqual((home / "config.yaml").read_text().count("provider:"), 1, name)
+            sidecar = home / "tsuzuki" / "config.json"
+            self.assertEqual(sidecar.stat().st_mode & 0o777, 0o600)
+            self.assertRegex(json.loads(sidecar.read_text())["token"], r"^[0-9a-f]{48}$")
+
+    def test_llamacpp_embeddings_and_a_local_url_only(self) -> None:
+        home = self.profile("lc")
+        out = self.run_main("--embedding", "llamacpp", "lc")
+        config = json.loads((home / "tsuzuki" / "config.json").read_text())
+        self.assertEqual(config["embedding"], {"baseUrl": "http://127.0.0.1:8081/v1", "model": "embeddinggemma"})
+        self.assertIn("llama.cpp", out)
+        other = self.profile("lc2")
+        self.run_main("--embedding", "llamacpp", "--embedding-url", "http://localhost:9000/v1", "lc2")
+        self.assertEqual(json.loads((other / "tsuzuki" / "config.json").read_text())["embedding"]["baseUrl"],
+                         "http://localhost:9000/v1")
+        self.profile("far")
+        with self.assertRaises(SystemExit), contextlib.redirect_stdout(io.StringIO()):
+            install.main(["--home", str(self.root), "--embedding", "llamacpp", "--embedding-url", "http://192.168.1.5:8081/v1", "far"])
+        self.assertFalse((install.profile_home("far", self.root) / "tsuzuki").exists())
+
     def test_embeddings_fall_back_to_ollama_without_the_engine(self) -> None:
         repo = Path(tempfile.mkdtemp(prefix="repo-"))
         self.addCleanup(shutil.rmtree, repo, True)

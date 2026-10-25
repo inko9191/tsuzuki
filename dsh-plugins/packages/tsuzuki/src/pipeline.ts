@@ -294,6 +294,16 @@ export function sessionOrder(turns: readonly Turn[]): string[] {
   })
 }
 
+/**
+ * A stored message (or note) as it appears inside a `<memory>` block. Its text cannot close or open the block
+ * (`<memory` and `</memory` lose their `<`), and its second and later lines are indented by four spaces, so a message
+ * cannot start a line that looks like a `Date:` line, an `[id] role:` excerpt or a two-space update note.
+ * (The evaluations rendered message text unchanged; single-line messages still are.)
+ */
+export function excerpt(text: string): string {
+  return text.replace(/<(\/?)(memory)/gi, '‹$1$2').replace(/\r\n?/g, '\n').replace(/\n/g, '\n    ')
+}
+
 /** Date-ordered rendering (U1 S/T/V): a Date line opens every session block; notes follow their message. */
 export function renderDated(turns: readonly Turn[], notes?: ReadonlyMap<string, readonly string[]>): string {
   const position = new Map(sessionOrder(turns).map((s, i) => [s, i] as const))
@@ -305,8 +315,8 @@ export function renderDated(turns: readonly Turn[], notes?: ReadonlyMap<string, 
       lines.push(`Date: ${t.date || 'unknown'}`)
       current = t.session
     }
-    lines.push(`[${t.id}] ${t.text}`)
-    for (const n of notes?.get(t.id) ?? []) lines.push(`  ${n}`)
+    lines.push(`[${t.id}] ${excerpt(t.text)}`)
+    for (const n of notes?.get(t.id) ?? []) lines.push(`  ${excerpt(n)}`)
   }
   return lines.join('\n')
 }

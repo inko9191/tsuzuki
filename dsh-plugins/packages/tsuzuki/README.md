@@ -31,8 +31,8 @@ message.
    ```
 
    The system prompt only gets a static guide, so the prefix cache is not invalidated each turn.
-5. **Tools.** `memory_search` searches all sessions (including the current one) and reranks by default.
-   `memory_forget` deletes memory (below).
+5. **Tools.** `memory_search` searches all sessions (including the current one). It can rerank with the chat model (`tool.rerank`), off by default.
+   `memory_forget` deletes memory (below; off unless `tool.forget: true`).
 
 The ranking, parsing and selection code (`src/pipeline.ts`) is a port of the evaluated Python;
 `test/conformance.test.mjs` replays fixtures produced by the Python itself (`test/make_fixtures.py`) and must match
@@ -44,7 +44,7 @@ exactly.
 |---|---|---|
 | A benchmark session is the fact-extraction unit | A segment of a dsh session (≈2,500 tokens or 30 idle min) | dsh sessions can last days |
 | Recent 1,024 tokens of history + 2,048 of memory | The live session is already in context; only other sessions are recalled | — |
-| Dense order, no rerank (P); rerank only for `memory_search` | Same | Rerank costs ~16 s per query on a local 27B model |
+| Dense order, no rerank (P) | Same; rerank is opt-in | Rerank costs ~16 s per query on a local 27B model, and with Gemma 4 E2B it lowered recall and answers at 5,000 sessions (S2) |
 | Qwen tokenizer counts | Estimated tokens (ASCII ≈ 4 chars, other characters ≈ 1) | No tokenizer in the plugin; never undercounts Japanese |
 | One date per session | A date line per session and day | A dsh session can span days |
 | Messages as written | Each message clipped to ~600 estimated tokens; rerank passages to ~250; secrets redacted | Fit one 2,048-token embedding input and the rerank window |
@@ -117,8 +117,8 @@ The row is enabled by the bundle. If the profile has another memory plugin, disa
 | `recall.timeoutMs` | `4000` | Skip recall for the turn when retrieval is slower (its requests are aborted) |
 | `embedding.queryTimeoutMs` | `3000` | Limit of one query embedding (recall, `memory_search`); storing uses the provider's own limit. After a timeout, queries fail at once for 30 s or until the model answers again |
 | `llm.rerankTimeoutMs` | `15000` | Limit of one rerank; then the dense order is used. A chat server that does not answer `GET /models` within 1.5 s is not asked |
-| `tool.enabled` / `rerank` / `budgetTokens` | `true` / `true` / `1024` | `memory_search` |
-| `tool.forget` | `true` | Offer `memory_forget` (only while `tool.enabled`) |
+| `tool.enabled` / `rerank` / `budgetTokens` | `true` / `false` / `1024` | `memory_search` |
+| `tool.forget` | `false` | Offer `memory_forget` (only while `tool.enabled`). Off by default: a model steered by a web page or pasted text could call it, and asking the user first is only an instruction to the model |
 | `llm.baseUrl` | `http://127.0.0.1:8080/v1` | Chat endpoint for facts and rerank; empty disables both |
 | `llm.server` | `llama.cpp` | Adds `cache_prompt` and thinking-off, enables the `/slots` busy check |
 | `facts.segmentTokens` / `segmentIdleMinutes` | `2500` / `30` | Segment size for fact extraction |
@@ -180,7 +180,10 @@ serves the same memory on `127.0.0.1:8297` by default (a default config is writt
 gives each profile its own port, `8297` + a hash of the data directory). The config is read only at start: after
 changing `config.json`, stop the running sidecar (its pid is in its log, or `lsof -t -iTCP:<port> -sTCP:LISTEN`) and
 start it again. Every route is refused for browsers (any `Origin`), for a foreign `Host`, for a POST that is not
-`application/json`, and without the bearer token when `token` is set. A body that is not a JSON object is a `400`.
+`application/json`, and without the bearer token when `token` is set. A config the sidecar writes itself (first start)
+gets a random `token`, and the file is readable by the user only (0600); send `Authorization: Bearer <token>`. A body
+that is not a JSON object is a `400`; one over 8 MB is a `413`. Recalled message text cannot close or open the
+`<memory>` block, and its continuation lines are indented, so a stored message cannot pose as another excerpt.
 JSON API:
 
 | | request | response |

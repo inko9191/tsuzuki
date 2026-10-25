@@ -98,6 +98,7 @@ class RealSidecarTests(unittest.TestCase):
     def provider(self, session: str) -> "em.TsuzukiProvider":
         p = em.TsuzukiProvider()
         p.initialize(session, hermes_home=str(self.home), platform="cli", agent_context="primary")
+        p._forget_enabled = True  # memory.tsuzuki.forget: true (off by default)
         if p.spawned_pid:
             self.pids.append(p.spawned_pid)
         return p
