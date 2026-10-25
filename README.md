@@ -2,6 +2,8 @@
 
 **Your agent remembers earlier conversations, and nothing leaves your machine.**
 
+[![CI](https://github.com/inko9191/tsuzuki/actions/workflows/ci.yml/badge.svg)](https://github.com/inko9191/tsuzuki/actions/workflows/ci.yml)
+
 [日本語の README](README.ja.md)
 
 - tsuzuki stores what you and your agent said in past sessions.
@@ -42,7 +44,7 @@ With Hermes there is nothing else to start: the memory and its models start by t
 
 Models go to `~/.tsuzuki/models`, the memory server's data to `~/.tsuzuki/memory` (Hermes: `<profile>/tsuzuki`). `node scripts/setup.mjs --help` lists the options (`--for hermes|app`, `--models`, `--llama-server`, `--no-facts`, `--yes`, ...); running it again is safe and continues an interrupted download.
 
-For DeepSeek Harness, your own model servers, Ollama, or this repository's Mac engine, see [Install (manual)](#install-manual). The setup script is written for Windows too (there, file permissions are those of your user folder), but so far it has been run only on macOS.
+For DeepSeek Harness, your own model servers, Ollama, or this repository's Mac engine, see [Install (manual)](#install-manual). [CI](.github/workflows/ci.yml) runs this quick start end to end on Linux, Windows and macOS (GitHub's virtual machines, llama.cpp's official CPU builds), up to the check that a message from one conversation is recalled in another. Fact extraction is checked there on Linux only, and connecting Hermes (`--for hermes`) has been run only on a Mac. On Windows, file permissions are those of your user folder.
 
 ## What is in this repository
 
@@ -201,7 +203,7 @@ This public repository starts from a fresh snapshot (its first commit); later co
 - **Japanese beyond a self-made test.** J1 and J1-Q (above) use a small self-made test; no real Japanese user conversations were measured.
 - **Thousands of sessions.** In a retrieval-only scale test ([`results/eval/memory/scale-report.md`](results/eval/memory/scale-report.md), in Japanese; LongMemEval-S sessions, message windows only, no facts, no rerank), the share of 60 questions whose answer message was in the recall fell from 0.883 at 50 stored sessions to 0.717 at 500, 0.667 at 2,000 and 0.517 at 5,000 (5,000 − 50: −0.367 [−0.483, −0.250]). **Accuracy falls as unrelated history accumulates.** S2 and S3 (above) measured answers at 5,000 sessions: facts win back part of it; a larger budget and reranking by a small model do not. Nothing beyond 5,000 sessions was measured.
 - **Real long-term use.** These tests use benchmark histories, not months of real conversations.
-- **Other hardware and the non-Mac path.** Everything was measured on one Mac. The llama.cpp embedding path (EmbeddingGemma 300m, Q8_0 GGUF) was checked against the fp32 engine on that Mac ([`scripts/eval/scale/llamacpp_parity.mjs`](scripts/eval/scale/llamacpp_parity.mjs)): cosine ≥ 0.9997 on 200 message windows and 60 questions, top-10 overlap 0.992, and the same scale-test recall at 500 sessions (0.717 and 0.717) and at 5,000 sessions (0.517 and 0.517). It has **not** been run on Linux or Windows yet. The Ollama path has **not** been measured; Ollama's build of EmbeddingGemma 300m may differ numerically from the fp32 engine. EmbeddingGemma 2 has not been measured in setting P (an exploratory LoCoMo check put its retrieval 0.03 recall@10 below 300m).
+- **Other hardware and the non-Mac path.** Everything was measured on one Mac. The llama.cpp embedding path (EmbeddingGemma 300m, Q8_0 GGUF) was checked against the fp32 engine on that Mac ([`scripts/eval/scale/llamacpp_parity.mjs`](scripts/eval/scale/llamacpp_parity.mjs)): cosine ≥ 0.9997 on 200 message windows and 60 questions, top-10 overlap 0.992, and the same scale-test recall at 500 sessions (0.717 and 0.717) and at 5,000 sessions (0.517 and 0.517). On Linux and Windows it has been run only in CI (GitHub's virtual machines, CPU builds): it works end to end there, but recall quality has **not** been measured on them. The Ollama path has **not** been measured; Ollama's build of EmbeddingGemma 300m may differ numerically from the fp32 engine. EmbeddingGemma 2 has not been measured in setting P (an exploratory LoCoMo check put its retrieval 0.03 recall@10 below 300m).
 - **Other models.** In U2 the answering model, the fact extractor and the judge were all the same local Qwen3.8-27B Q4_K_M. E1 changed only the reader. Cloud models with stronger long-context ability were not tested; such a model could narrow or reverse the gap against the full history.
 - **Write-time cost.** The answer times do not include the background work when messages are stored (fact extraction and update checks with the chat model, plus embedding; with Gemma 4 E2B on the M5 Max about 10–14 s per conversation in S3). The full-history times were measured with llama.cpp's host prompt cache off.
 - **Comparison with published LongMemEval scores.** Not comparable: published scores use a GPT-4o judge and other models.

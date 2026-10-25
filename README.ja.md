@@ -2,6 +2,8 @@
 
 **エージェントが前の会話を覚えている。しかも、何もマシンの外に出ない。**
 
+[![CI](https://github.com/inko9191/tsuzuki/actions/workflows/ci.yml/badge.svg)](https://github.com/inko9191/tsuzuki/actions/workflows/ci.yml)
+
 [English README](README.md)
 
 - tsuzuki は、あなたとエージェントの過去の会話を保存する。
@@ -42,7 +44,7 @@ Hermes なら、ほかに起動するものは無い。Hermes が最初に必要
 
 モデルは `~/.tsuzuki/models`、記憶のサーバーのデータは `~/.tsuzuki/memory`（Hermes は `<プロファイル>/tsuzuki`）。`node scripts/setup.mjs --help` で選択肢（`--for hermes|app`、`--models`、`--llama-server`、`--no-facts`、`--yes` など）が出る。何度実行してもよく、途中で止まったダウンロードは続きから再開する。
 
-DeepSeek Harness、自分で立てたモデルのサーバー、Ollama、このリポジトリの Mac 用エンジンを使うときは、[入れ方（手動）](#入れ方手動)。セットアップのスクリプトは Windows でも動くように書いてある（ファイルの権限はユーザーのフォルダのもの）が、まだ macOS でしか動かしていない。
+DeepSeek Harness、自分で立てたモデルのサーバー、Ollama、このリポジトリの Mac 用エンジンを使うときは、[入れ方（手動）](#入れ方手動)。[CI](.github/workflows/ci.yml) で、Linux・Windows・macOS それぞれ、この手順を最後まで動かしている（GitHub の仮想マシン、llama.cpp の公式の CPU 版。ある会話の発言が別の会話で思い出されることの確認まで）。事実の抽出まで確かめているのは Linux だけで、Hermes につなぐ手順（`--for hermes`）は Mac でしか動かしていない。Windows では、ファイルの権限はユーザーのフォルダのもの。
 
 ## 中身
 
@@ -201,7 +203,7 @@ J1 の規則で行うことになった追試（[`docs/MEMORY_JA_J1Q_PREREG.md`]
 - **自作テスト以外の日本語**：J1 と J1-Q（上）は小さな自作テストで、本物の日本語の利用者の会話は測っていない。
 - **数千セッション**：取り出しだけの規模試験（[`results/eval/memory/scale-report.md`](results/eval/memory/scale-report.md)。LongMemEval-S のセッション、発言の窓だけ、事実なし、rerank なし）で、60 問のうち答えの発言が想起に入った割合は、保存したセッションが 50 で 0.883、500 で 0.717、2,000 で 0.667、5,000 で 0.517 だった（5,000 − 50：−0.367 [−0.483, −0.250]）。**関係のない履歴が増えるほど精度は落ちる。** S2 と S3（上）で 5,000 セッションでの回答を測った。事実で一部を取り戻せ、枠の拡大と小さいモデルの並べ替えでは戻らなかった。5,000 セッションより先は測っていない。
 - **本当の長期利用**：試験はベンチマークの履歴で、何か月分もの本物の会話ではない。
-- **ほかのハードウェアと Mac 以外の経路**：すべて Mac 1 台で測った。llama.cpp の埋め込みの経路（EmbeddingGemma 300m、Q8_0 の GGUF）は、その Mac で fp32 のエンジンと比べた（[`scripts/eval/scale/llamacpp_parity.mjs`](scripts/eval/scale/llamacpp_parity.mjs)）。発言の窓 200 と質問 60 で cos ≥ 0.9997、上位 10 件の重なり 0.992、規模試験の想起は 500 セッションで同じ（0.717 と 0.717）、5,000 セッションでも同じ（0.517 と 0.517）。Linux や Windows では**まだ動かしていない**。Ollama の経路は**測っていない**。Ollama の EmbeddingGemma 300m は、fp32 のエンジンと数値が違う可能性がある。EmbeddingGemma 2 は設定 P で測っていない（LoCoMo の探索では、取り出しが 300m より recall@10 で 0.03 低かった）。
+- **ほかのハードウェアと Mac 以外の経路**：すべて Mac 1 台で測った。llama.cpp の埋め込みの経路（EmbeddingGemma 300m、Q8_0 の GGUF）は、その Mac で fp32 のエンジンと比べた（[`scripts/eval/scale/llamacpp_parity.mjs`](scripts/eval/scale/llamacpp_parity.mjs)）。発言の窓 200 と質問 60 で cos ≥ 0.9997、上位 10 件の重なり 0.992、規模試験の想起は 500 セッションで同じ（0.717 と 0.717）、5,000 セッションでも同じ（0.517 と 0.517）。Linux と Windows では CI（GitHub の仮想マシン、CPU 版）でしか動かしていない。最後まで動くことは確かめたが、想起の質はそこでは**測っていない**。Ollama の経路は**測っていない**。Ollama の EmbeddingGemma 300m は、fp32 のエンジンと数値が違う可能性がある。EmbeddingGemma 2 は設定 P で測っていない（LoCoMo の探索では、取り出しが 300m より recall@10 で 0.03 低かった）。
 - **ほかのモデル**：U2 では、回答・事実の抽出・採点がすべて同じローカルの Qwen3.8-27B Q4_K_M。E1 は答える役だけを替えた。長い文脈に強いクラウドのモデルは試していない。そうしたモデルなら、全履歴との差は縮むか、逆になるかもしれない。
 - **保存のときのコスト**：回答時間には、保存のときの裏の作業（チャットモデルによる事実の抽出と更新の判定、埋め込み。S3 では M5 Max の Gemma 4 E2B で 1 会話あたり約 10〜14 秒）を含めていない。全履歴の時間は、llama.cpp のホストのプロンプトキャッシュを切って測った。
 - **公表されている LongMemEval の点との比較**：比べられない。公表値は GPT-4o の採点と別のモデルを使っている。
