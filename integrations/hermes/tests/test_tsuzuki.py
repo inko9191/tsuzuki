@@ -404,7 +404,8 @@ class AvailabilityTests(SidecarTestCase):
         path, config = em._load_or_create_sidecar_config(data_dir)
         self.assertEqual(config["port"], em.profile_port(data_dir))
         self.assertTrue(8297 <= config["port"] < 8797)
-        self.assertNotEqual(em.profile_port(data_dir), em.profile_port(self.home / "other" / "tsuzuki"))
+        # Fixed paths: two random ones share a port 1 time in 500 (the provider then sees another memory and warns).
+        self.assertNotEqual(em.profile_port(Path("/profiles/a/x")), em.profile_port(Path("/profiles/b/x")))
         self.assertEqual(config["dataDir"], str(data_dir))
         self.assertEqual(config["embedding"]["model"], "embeddinggemma")
         self.assertEqual(config["embedding"]["queryPrefix"], "task: search result | query: ")
