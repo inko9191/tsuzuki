@@ -12,7 +12,11 @@
   - 検索は EmbeddingGemma 300m（Mac ではこのリポジトリのエンジン、ほかでは llama.cpp か Ollama）。
   - 過去の会話からの事実の抽出は、手元のチャットモデル（検証は llama.cpp 上の Qwen 27B と Gemma 4 E2B）。
 
-[DeepSeek Harness（dsh）](https://github.com/deepseek-ai/deepseek-harness)のプラグイン、Hermes Agent の記憶プロバイダ、`127.0.0.1` の小さな HTTP サイドカーの3つの形で使える。
+使える相手：
+- **自分のモデルのサーバーを使うチャットアプリ**（llama.cpp、Ollama、LM Studio などにつないだ Open WebUI、SillyTavern、LibreChat、Continue など）：間に挟むプロキシで、どのチャットにも記憶が効く。ツールの呼び出しは要らない。
+- **MCP クライアント**（Claude Desktop、Claude Code、Cursor、LM Studio、Jan、Cline など）：ツールとして。
+- [DeepSeek Harness（dsh）](https://github.com/deepseek-ai/deepseek-harness)のプラグイン、Hermes Agent の記憶プロバイダ。
+- そのほか何でも：`127.0.0.1` の小さな HTTP サイドカーで。
 
 このリポジトリには、**EmbeddingGemma のモデルを動かす非公式の推論エンジン（Google とは無関係）**も入っている。Apple シリコン向けの C++/Metal 実装。
 
@@ -37,12 +41,26 @@ node scripts/setup.mjs
 スクリプトがすること：
 1. プラグインをビルドする。
 2. モデルを 2 つ、確認してからダウンロードする。**EmbeddingGemma 300m**（334 MB、検索用。[Gemma の利用規約](https://ai.google.dev/gemma/terms)）と **Gemma 4 E2B**（3.35 GB、Apache 2.0。任意。過去の会話から事実を抜き出す。会話が溜まっても思い出しが落ちにくくなる）。
-3. 記憶を **Hermes Agent** につなぐ（先に Hermes を終了する）か、ほかのアプリのための **HTTP サイドカー**を用意する。
+3. 記憶を、使う場所につなぐ（どこで使うかを聞く。下の表）。
 4. 使い捨ての記憶で、ある会話の発言が別の会話で思い出せること、事実が抜き出せることを確かめる。
 
-Hermes なら、ほかに起動するものは無い。Hermes が最初に必要としたときに、記憶とモデルが自分で起動する。ほかのアプリでは、セットアップの最後に表示されるコマンドで記憶のサーバーを起動し、動かしたままにする。どちらでも、記憶は llama.cpp を自分で起動し、次のために動かしたままにする（検索で約 0.5 GB、事実ありでさらに約 4 GB のメモリ）。止めるときは `node scripts/setup.mjs --stop`。事実は会話のおよそ 1 分後に抜き出される（`POST /v1/memory/flush` のあとはすぐ）。エージェントがクラウドのモデルを使っていても、事実の抜き出しは手元で行う。
+| 使っているもの | 選ぶ番号 | そこでの記憶の働き方 |
+|---|---|---|
+| Hermes Agent | `1`（`--for hermes`） | 発言のたびに関係する記憶が足され、会話はすべて保存される。セットアップの前に Hermes を終了する。あとは起動するものは無い。 |
+| Claude Desktop、Claude Code、Cursor、LM Studio、Jan、Cline などの MCP クライアント | `2`（`--for mcp`） | クライアントの MCP の設定に足すものを表示する（Claude Code なら `claude mcp add` のコマンド 1 行）。モデルにツール `recall`（思い出す）と `remember`（覚える）が渡り、いつ呼ぶかはモデルが決める（サーバーの説明で、いつ呼ぶかを伝えている）。`remember` が呼ばれない限り、何も保存されない。 |
+| 自分のモデルのサーバー（llama.cpp、Ollama、LM Studio など）を使うチャットアプリ | `3`（`--for chat`） | モデルのサーバーの前に挟むプロキシ。アプリで、OpenAI 互換の URL を `http://127.0.0.1:8293/v1`、API キーをセットアップが表示するトークンにする。チャットはすべて保存され、発言のたびに前のチャットから思い出す。ツールの呼び出しは要らない。検証したのと同じ形で、ツールをうまく呼べないことの多い小さいローカルモデルにはこれ。 |
+| 自分で作るプログラム | `4`（`--for app`） | 記憶のサーバーの HTTP API（[3d](#3d-そのほかhttp-サイドカー)）。 |
 
-モデルは `~/.tsuzuki/models`、記憶のサーバーのデータは `~/.tsuzuki/memory`（Hermes は `<プロファイル>/tsuzuki`）。`node scripts/setup.mjs --help` で選択肢（`--for hermes|app`、`--models`、`--llama-server`、`--no-facts`、`--yes` など）が出る。何度実行してもよく、途中で止まったダウンロードは続きから再開する。
+どの場合も、記憶は必要なときに llama.cpp を自分で起動し、次のために動かしたままにする（検索で約 0.5 GB、事実ありでさらに約 4 GB のメモリ）。全部止めるときは `node scripts/setup.mjs --stop`。事実は会話のおよそ 1 分後に抜き出される。エージェントがクラウドのモデルを使っていても、事実の抜き出しは手元で行う。
+
+**プロキシについて**
+- 記憶のサーバーが動いている必要がある。セットアップが起動する。パソコンを再起動したあとは `node scripts/setup.mjs --start` で起動し直す。
+- チャットは、システムプロンプトと最初の発言で見分ける。アプリが発言のたびに送り直す履歴は、1 回だけ保存する。
+- アプリ自身の裏の作業（Open WebUI のタイトルやタグづけ。`### Task:` で始まる）と、ヘッダー `X-Memory: off` の付いた要求は、記憶なしでそのまま通す。`/v1/models` などほかの要求もそのまま通す。
+- 思い出した内容は、システムプロンプトではなく最後のユーザーの発言の前に入れる。前の発言は変わらないので、モデルのサーバーのプロンプトキャッシュが効いたままになる。
+- 転送先は、このマシンのモデルのサーバーだけ。記憶のサーバーと同じく、ウェブページからの要求は断る。ブラウザのページから直接モデルのサーバーを呼ぶアプリでは使えない。Docker Desktop のコンテナのアプリからは `http://host.docker.internal:8293/v1`（未確認）。Linux では、コンテナを `--network=host` で動かして `127.0.0.1` を使う。
+
+モデルは `~/.tsuzuki/models`、記憶のサーバーのデータは `~/.tsuzuki/memory`（Hermes は `<プロファイル>/tsuzuki`）。`node scripts/setup.mjs --help` で選択肢（`--for hermes|mcp|chat|app`、`--upstream`、`--models`、`--llama-server`、`--no-facts`、`--yes`、`--start`、`--stop` など）が出る。何度実行してもよく、途中で止まったダウンロードは続きから再開する。
 
 DeepSeek Harness、自分で立てたモデルのサーバー、Ollama、このリポジトリの Mac 用エンジンを使うときは、[入れ方（手動）](#入れ方手動)。[CI](.github/workflows/ci.yml) で、Linux・Windows・macOS それぞれ、この手順を最後まで動かしている（GitHub の仮想マシン、llama.cpp の公式の CPU 版。ある会話の発言が別の会話で思い出されることの確認まで）。事実の抽出まで確かめているのは Linux だけで、Hermes につなぐ手順（`--for hermes`）は Mac でしか動かしていない。Windows では、ファイルの権限はユーザーのフォルダのもの。
 
@@ -205,6 +223,7 @@ J1 の規則で行うことになった追試（[`docs/MEMORY_JA_J1Q_PREREG.md`]
 - **本当の長期利用**：試験はベンチマークの履歴で、何か月分もの本物の会話ではない。
 - **ほかのハードウェアと Mac 以外の経路**：すべて Mac 1 台で測った。llama.cpp の埋め込みの経路（EmbeddingGemma 300m、Q8_0 の GGUF）は、その Mac で fp32 のエンジンと比べた（[`scripts/eval/scale/llamacpp_parity.mjs`](scripts/eval/scale/llamacpp_parity.mjs)）。発言の窓 200 と質問 60 で cos ≥ 0.9997、上位 10 件の重なり 0.992、規模試験の想起は 500 セッションで同じ（0.717 と 0.717）、5,000 セッションでも同じ（0.517 と 0.517）。Linux と Windows では CI（GitHub の仮想マシン、CPU 版）でしか動かしていない。最後まで動くことは確かめたが、想起の質はそこでは**測っていない**。Ollama の経路は**測っていない**。Ollama の EmbeddingGemma 300m は、fp32 のエンジンと数値が違う可能性がある。EmbeddingGemma 2 は設定 P で測っていない（LoCoMo の探索では、取り出しが 300m より recall@10 で 0.03 低かった）。
 - **ほかのモデル**：U2 では、回答・事実の抽出・採点がすべて同じローカルの Qwen3.8-27B Q4_K_M。E1 は答える役だけを替えた。長い文脈に強いクラウドのモデルは試していない。そうしたモデルなら、全履歴との差は縮むか、逆になるかもしれない。
+- **プロキシと MCP クライアント**：プロキシは検証した思い出し方（発言の窓と事実、2,048 トークン、ユーザーの発言の前）を使うが、入れる先は評価のときの書式ではなく、アプリが送る会話。答えへの効果は測っていない。MCP クライアントでは、いつ思い出し、何を覚えるかをモデルが決める。これも測っていない。動くことは確かめた。Gemma 4 E2B の前にプロキシを挟むと、新しいチャットで前のチャットの内容を答えた（英語と日本語）。MCP サーバーは公式の MCP の Python SDK で確かめた。上に挙げたアプリそれぞれでは試していない。
 - **保存のときのコスト**：回答時間には、保存のときの裏の作業（チャットモデルによる事実の抽出と更新の判定、埋め込み。M5 Max の Gemma 4 E2B で 1 件ずつなら 1 会話あたり中央値 4.2 秒）を含めていない。全履歴の時間は、llama.cpp のホストのプロンプトキャッシュを切って測った。
 - **公表されている LongMemEval の点との比較**：比べられない。公表値は GPT-4o の採点と別のモデルを使っている。
 - **精度**：40 問なので区間が広い。U2 の主判定は、答えたのと同じモデル。副次の採点はそれを確かめるためのもの。
@@ -359,9 +378,11 @@ node dsh-plugins/packages/tsuzuki/lib/server.js --config <フォルダ>/config.j
 
 サイドカーは、起動したときにだけ `config.json` を読む。変えたら、止めて起動し直す。
 
+プロキシ（`--for chat` が用意する）は同じサーバーの一部：`"proxy": {"enabled": true, "port": 8293, "upstream": "http://127.0.0.1:8080/v1", "apiKey": ""}`。`apiKey` はモデルのサーバーに送る（アプリが送るキーは記憶のトークンで、転送しない）。`upstream` は、`"allowRemoteUpstream": true` にしない限り、このマシンのものだけ。MCP サーバーは `node dsh-plugins/packages/tsuzuki/lib/mcp.js [--config <パス>] [--forget]`。同じ `config.json` を読み、サイドカーが動いていなければ起動する。
+
 | エンドポイント | 要求 | 応答 |
 |---|---|---|
-| `GET /health` | | `{status, version, dataDir, stats, embedding, chat}`。`embedding` と `chat` は `{url, ok, lastError, lastErrorAt}`。`stats.unindexed` は、まだ埋め込んでいない数 |
+| `GET /health` | | `{status, version, pid, dataDir, stats, embedding, chat}`。`embedding` と `chat` は `{url, ok, lastError, lastErrorAt}`。`stats.unindexed` は、まだ埋め込んでいない数 |
 | `POST /v1/memory/messages` | `{session, messages: [{role, text, id?, at?}]}` | `{stored}`。保存した時点で答える |
 | `POST /v1/memory/recall` | `{query, session?, budget_tokens?}`。今のセッションは除く。rerank なし | `{text, ids, reranked}`。`text` は `<memory>` のブロックか `""`。クエリを埋め込めないときは `503 {error, cause}` |
 | `POST /v1/memory/search` | `{query, budget_tokens?, rerank?}`。全セッション | 同じ |
@@ -396,9 +417,10 @@ node dsh-plugins/packages/tsuzuki/lib/server.js --config <フォルダ>/config.j
   - Hermes の導入スクリプトは、プロファイルのモデルの接続先を、このマシンの上にあるときだけ使う。リモートなら、`--allow-remote-chat`（か `--no-chat`）を付けない限り止まる。
   - dsh の `llm.baseUrl` の既定は `http://127.0.0.1:8080/v1`。そのポートが手元のチャットサーバーであることを確かめるか、設定する。
 - **秘密情報の伏せ字**（既定でオン）：保存・埋め込み・事実のモデルへの送信の前に（クエリも）、次を `[REDACTED:種類]` にする。API キーとトークン（OpenAI、Anthropic、GitHub、GitLab、Hugging Face、AWS、Google、Slack と Slack の Webhook、Stripe、npm、SendGrid、Discord）、JWT、bearer と Basic の認証情報、URL の中の認証情報、`password:`・`OPENAI_API_KEY=`・`token:` の形の値（パスワード などの日本語のラベルも。「パスワードは …」も、値に数字か記号があれば）、Luhn の検査に通るカード番号。パターンによるもので、誤検出を避ける側に寄せている。**珍しい形の秘密は漏れることがある。** 会話に秘密を貼って、これに頼らないこと。
+- **プロキシ**は、チャットを思い出した記憶と一緒に、設定したモデルのサーバーへ送る。ほかのマシンのモデルのサーバーは、設定で許さない限り断る。トークンと確認はサイドカーと同じ（Docker Desktop のアプリのために、ホスト名 `host.docker.internal` も受け付ける）。
 - **サイドカー**：`127.0.0.1` だけで待ち受け、JSON でない要求、ブラウザの `Origin` 付きの要求、ループバック以外の `Host` の要求は拒む（ウェブページからは使えない）。サイドカー自身や Hermes の導入スクリプトが書いた設定には無作為の `token` が入り、そのファイルを読めないプログラム（ほかのユーザー、サンドボックス）は拒まれる。`token` の無い設定（手で書いたもの、この版より前のもの）では、このマシンのどのプログラムからも使える。ループバック以外の `host` にはトークンが要る。
 - **ファイル**：記憶のフォルダは自分だけが読める形（0700）で作り、SQLite のファイルと WAL は 0600、`config.json` も 0600。埋め込みのエンジン（`egemma-server`）も、同じ Origin・Host・JSON の検査をする。
-- **忘れる**：ツール `memory_forget`（dsh）と `tsuzuki_forget`（Hermes）は**既定でオフ**。ツールの説明で、消す範囲をユーザーに示し、確認を取ってから呼ぶようモデルに求めているが、それはモデルへのお願いで、ウェブページや貼り付けた文に覆されうるため。使うときは `tool.forget: true`（dsh）か、Hermes のプロファイルの `config.yaml` の `memory.tsuzuki.forget: true` にする。ほかのホストは `POST /v1/memory/forget`。範囲は、1つのセッション、ある日時より前に保存したものすべて、すべて、の3つ。消えるのは、発言、そこから作った窓と事実、更新のリンク。SQLite のファイルと WAL も書き直すので、ファイルからも本文が消える。発言を1件ずつ消す機能は無い。対象外：ホスト自身のセッション履歴、保存先のコピーやバックアップ、ローカルのサーバーがすでに見たもの。手ですべて消すときは、ホストを止めて記憶のフォルダを消す（dsh は `$DSH_HOME/tsuzuki`、Hermes は `<プロファイル>/tsuzuki`、サイドカーは `config.json` の `dataDir`。セットアップなら `~/.tsuzuki/memory` で、`~/.tsuzuki/models` のモデルは別）。
+- **忘れる**：ツール `memory_forget`（dsh）、`tsuzuki_forget`（Hermes）、`forget`（MCP）は**既定でオフ**。ツールの説明で、消す範囲をユーザーに示し、確認を取ってから呼ぶようモデルに求めているが、それはモデルへのお願いで、ウェブページや貼り付けた文に覆されうるため。使うときは `tool.forget: true`（dsh）、Hermes のプロファイルの `config.yaml` の `memory.tsuzuki.forget: true`、MCP サーバーの引数の `--forget` にする。ほかのホストは `POST /v1/memory/forget`。範囲は、1つのセッション、ある日時より前に保存したものすべて、すべて、の3つ。消えるのは、発言、そこから作った窓と事実、更新のリンク。SQLite のファイルと WAL も書き直すので、ファイルからも本文が消える。発言を1件ずつ消す機能は無い。対象外：ホスト自身のセッション履歴、保存先のコピーやバックアップ、ローカルのサーバーがすでに見たもの。手ですべて消すときは、ホストを止めて記憶のフォルダを消す（dsh は `$DSH_HOME/tsuzuki`、Hermes は `<プロファイル>/tsuzuki`、サイドカーは `config.json` の `dataDir`。セットアップなら `~/.tsuzuki/memory` で、`~/.tsuzuki/models` のモデルは別）。
 
 ## モデルのライセンス
 

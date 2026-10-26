@@ -18,6 +18,7 @@ import { recallText } from './format.ts'
 import { ChatUnavailableError, OpenAIChat, LLAMA_CPP_EXTRA } from './llm.ts'
 import { EmbeddingTimeoutError, EmbeddingUnavailableError, Memory, describe, forgetScope, within, type ChatModel } from './memory.ts'
 import { MemoryStore, type StoredTurn } from './store.ts'
+import { proxyHandler } from './proxy.ts'
 
 export const VERSION = '0.1.0'
 
@@ -42,6 +43,12 @@ export interface SidecarConfig {
   search: { budgetTokens: number, rerank: boolean }
   facts: { segmentTokens: number, segmentIdleMinutes: number, intervalSeconds: number, updateLinks: boolean }
   capture: { redactSecrets: boolean }
+  /**
+   * OpenAI-compatible proxy (src/proxy.ts) on its own port: chat apps use it instead of the model server at `upstream`
+   * and get memory without a plugin. Same token as the sidecar. `upstream` must be on this machine unless
+   * `allowRemoteUpstream` (recalled memory would otherwise leave it).
+   */
+  proxy: { enabled: boolean, port: number, upstream: string, apiKey: string, allowRemoteUpstream: boolean }
 }
 
 /** A llama-server the sidecar starts when it needs it and leaves running (other hosts may share it). */
@@ -73,6 +80,7 @@ export function defaults(dataDir: string): SidecarConfig {
     search: { budgetTokens: 2048, rerank: false },
     facts: { segmentTokens: 2500, segmentIdleMinutes: 30, intervalSeconds: 60, updateLinks: true },
     capture: { redactSecrets: true },
+    proxy: { enabled: false, port: 8293, upstream: 'http://127.0.0.1:8080/v1', apiKey: '', allowRemoteUpstream: false },
   }
 }
 
@@ -334,10 +342,11 @@ function sameSecret(given: string, expected: string): boolean {
   return timingSafeEqual(digest(given), digest(expected))
 }
 
-export function refusal(req: IncomingMessage, config: Pick<SidecarConfig, 'host' | 'token'>, port: number): [number, string] | null {
+export function refusal(req: IncomingMessage, config: Pick<SidecarConfig, 'host' | 'token'>, port: number,
+  hostNames: readonly string[] = []): [number, string] | null {
   if (req.headers.origin !== undefined) return [403, 'browser requests are not accepted']
   if (LOOPBACK.has(config.host)) {
-    const allowed = new Set([`127.0.0.1:${port}`, `localhost:${port}`, `[::1]:${port}`])
+    const allowed = new Set([`127.0.0.1:${port}`, `localhost:${port}`, `[::1]:${port}`, ...hostNames.map(h => `${h}:${port}`)])
     if (!allowed.has(String(req.headers.host ?? '').toLowerCase())) return [403, 'unexpected Host header']
   }
   if (config.token && !sameSecret(String(req.headers.authorization ?? ''), `Bearer ${config.token}`)) return [401, 'missing or wrong token']
@@ -347,9 +356,17 @@ export function refusal(req: IncomingMessage, config: Pick<SidecarConfig, 'host'
   return null
 }
 
-export async function start(config: SidecarConfig): Promise<{ close(): Promise<void>, port: number }> {
+export async function start(config: SidecarConfig): Promise<{ close(): Promise<void>, port: number, proxyPort: number }> {
   if (!LOOPBACK.has(config.host) && !config.token) {
     throw new Error(`refusing to listen on ${config.host} without a token (set "token" in the config)`)
+  }
+  if (config.proxy.enabled && !config.proxy.allowRemoteUpstream) {
+    let host = ''
+    try { host = new URL(config.proxy.upstream).hostname.replace(/^\[|\]$/g, '') } catch {}
+    if (!LOOPBACK.has(host)) {
+      throw new Error(`proxy.upstream ${config.proxy.upstream} is not on this machine: recalled memory would be sent there `
+        + '(set "proxy.allowRemoteUpstream": true to allow it)')
+    }
   }
   mkdirSync(config.dataDir, { recursive: true, mode: 0o700 })
   const dataDir = realpathSync(config.dataDir)
@@ -467,7 +484,7 @@ export async function start(config: SidecarConfig): Promise<{ close(): Promise<v
       if (req.method === 'GET' && url.pathname === '/health') {
         // `status` is about this process; whether memory works is in `embedding` / `chat` (ok, lastError) and `unindexed`.
         const state = memory.status()
-        return send(res, 200, { status: 'ok', version: VERSION, dataDir, stats: { ...memory.stats(), unindexed: state.unindexed },
+        return send(res, 200, { status: 'ok', version: VERSION, pid: process.pid, dataDir, stats: { ...memory.stats(), unindexed: state.unindexed },
           embedding: { model: embedder.model(), url: embeddingUrl, ...state.embedding },
           chat: chat ? { url: chatUrl, ...state.chat } : null })
       }
@@ -539,17 +556,55 @@ export async function start(config: SidecarConfig): Promise<{ close(): Promise<v
       return send(res, 500, { error: String(error) })
     }
   })
-  await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(config.port, config.host, resolve) })
-  const port = (server.address() as { port: number }).port
+  let proxyPort = 0
+  const proxy = config.proxy.enabled ? (() => {
+    const handle = proxyHandler({ memory, upstream: config.proxy.upstream, apiKey: config.proxy.apiKey,
+      budgetTokens: config.recall.budgetTokens, log,
+      queue: <T>(work: () => T) => {
+        const done = chain.then(work)
+        chain = done.then(() => {}, e => log('warn', `capture: ${describe(e)}`))
+        return done as Promise<T>
+      },
+      index: turns => { indexing = indexing.then(() => indexTurns(turns)) },
+      settled: () => within(Promise.all([ready, indexing]), READY_WAIT_MS).then(() => {}),
+    })
+    return createServer((req, res) => {
+      // Docker Desktop forwards host.docker.internal to this machine's loopback: chat apps in a container (Open WebUI) use it.
+      const refused = refusal(req, config, proxyPort, ['host.docker.internal'])
+      if (refused) {
+        req.resume()
+        return send(res, refused[0], { error: { message: refused[1], type: 'proxy_error' } })
+      }
+      void handle(req, res)
+    })
+  })() : null
+  const listen = (s: ReturnType<typeof createServer>, at: number) =>
+    new Promise<number>((resolve, reject) => { s.once('error', reject); s.listen(at, config.host, () => resolve((s.address() as { port: number }).port)) })
+  const port = await listen(server, config.port)
   boundPort = port
+  if (proxy) {
+    try {
+      proxyPort = await listen(proxy, config.proxy.port)
+    } catch (error) {
+      for (const t of timers) clearInterval(t)
+      memory.close()
+      await new Promise<void>(resolve => server.close(() => resolve()))
+      store.close()
+      throw new Error(`the proxy cannot listen on port ${config.proxy.port}: ${(error as Error).message}`)
+    }
+  }
   return {
     port,
+    proxyPort,
     async close() {
       stopping = true
       for (const t of timers) clearInterval(t)
       const closed = new Promise<void>(resolve => server.close(() => resolve()))
+      const proxyClosed = proxy ? new Promise<void>(resolve => proxy.close(() => resolve())) : Promise.resolve()
+      proxy?.closeAllConnections()
       memory.close()  // aborts model requests in flight, so open requests and queued indexing end now
       await closed
+      await proxyClosed
       await chain
       await indexing
       memory.closeAll()
@@ -573,7 +628,8 @@ export async function main(): Promise<void> {
   const path = at >= 0 ? process.argv[at + 1]! : defaultConfigPath()
   const config = loadConfig(path)
   const running = await start(config)
-  process.stdout.write(JSON.stringify({ event: 'ready', port: running.port, version: VERSION }) + '\n')
+  process.stdout.write(JSON.stringify({ event: 'ready', port: running.port, ...(running.proxyPort ? { proxyPort: running.proxyPort } : {}),
+    version: VERSION }) + '\n')
   const stop = () => { void running.close().finally(() => process.exit(0)) }
   process.on('SIGTERM', stop)
   process.on('SIGINT', stop)

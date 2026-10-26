@@ -12,7 +12,11 @@
   - EmbeddingGemma 300m for search (through this repository's engine on a Mac, or llama.cpp / Ollama elsewhere);
   - your local chat model to pull facts out of past sessions (tested: Qwen 27B and Gemma 4 E2B on llama.cpp).
 
-It works with [DeepSeek Harness (dsh)](https://github.com/deepseek-ai/deepseek-harness) as a plugin, with Hermes Agent as a memory provider, and with anything else through a small HTTP sidecar on `127.0.0.1`.
+It works with:
+- **chat apps on your own model server** (Open WebUI, SillyTavern, LibreChat, Continue... with llama.cpp, Ollama or LM Studio), through a proxy that gives every chat memory, with no tool calls;
+- **MCP clients** (Claude Desktop, Claude Code, Cursor, LM Studio, Jan, Cline...), as tools;
+- [DeepSeek Harness (dsh)](https://github.com/deepseek-ai/deepseek-harness) as a plugin, and Hermes Agent as a memory provider;
+- anything else through a small HTTP sidecar on `127.0.0.1`.
 
 The repository also contains **an unofficial inference engine for EmbeddingGemma models (not affiliated with Google)**, written in C++/Metal for Apple silicon.
 
@@ -37,12 +41,26 @@ node scripts/setup.mjs
 The script:
 1. builds the plugins;
 2. downloads two models, asking first: **EmbeddingGemma 300m** (334 MB, for search; under the [Gemma Terms of Use](https://ai.google.dev/gemma/terms)) and **Gemma 4 E2B** (3.35 GB, Apache 2.0; optional, for pulling facts out of past conversations, which keeps recall better as conversations pile up);
-3. connects the memory to **Hermes Agent** (quit Hermes first), or prepares the **HTTP sidecar** for any other app;
+3. connects the memory where you use it (it asks; see the table below);
 4. checks, in a throwaway store, that a message from one conversation is recalled in another and that facts are extracted.
 
-With Hermes there is nothing else to start: the memory and its models start by themselves when Hermes first needs them. For another app, start the memory server with the command setup prints at the end and keep it running. Either way, the memory starts llama.cpp itself and leaves it running for next time (about 0.5 GB of memory for search, about 4 GB more with facts); `node scripts/setup.mjs --stop` stops it. Facts appear about a minute after a conversation (at once after `POST /v1/memory/flush`), and they run on your machine even when your agent uses a cloud model.
+| You use | Choose | How the memory works there |
+|---|---|---|
+| Hermes Agent | `1` (`--for hermes`) | Before each message the relevant memory is added, and every conversation is stored. Quit Hermes before the setup; then nothing else to start. |
+| Claude Desktop, Claude Code, Cursor, LM Studio, Jan, Cline, or another MCP client | `2` (`--for mcp`) | Setup prints what to add to the client's MCP settings (for Claude Code, one `claude mcp add` command). The model gets the tools `recall` and `remember` and decides when to call them; the server's instructions tell it when. Nothing is stored unless it calls `remember`. |
+| A chat app on your own model server (llama.cpp, Ollama, LM Studio...) | `3` (`--for chat`) | A proxy in front of the model server. In the app, set the OpenAI-compatible URL to `http://127.0.0.1:8293/v1` and the API key to the token setup prints. Every chat is stored, and earlier chats are recalled before each message, with no tool calls: the way memory was tested, and the choice for small local models, which often do not call tools reliably. |
+| Your own program | `4` (`--for app`) | The HTTP API of the memory server ([3d](#3d-anything-else-the-http-sidecar)). |
 
-Models go to `~/.tsuzuki/models`, the memory server's data to `~/.tsuzuki/memory` (Hermes: `<profile>/tsuzuki`). `node scripts/setup.mjs --help` lists the options (`--for hermes|app`, `--models`, `--llama-server`, `--no-facts`, `--yes`, ...); running it again is safe and continues an interrupted download.
+In every case the memory starts llama.cpp itself when it needs it and leaves it running for next time (about 0.5 GB of memory for search, about 4 GB more with facts); `node scripts/setup.mjs --stop` stops everything. Facts appear about a minute after a conversation, and they run on your machine even when your agent uses a cloud model.
+
+**About the proxy.**
+- The memory server must be running: setup starts it, and after restarting the computer `node scripts/setup.mjs --start` starts it again.
+- A chat is recognized by its system prompt and first message; the history an app sends again with each message is stored once.
+- Requests for the app's own background tasks (Open WebUI's titles and tags, which start with `### Task:`) and requests with the header `X-Memory: off` pass through without memory, as do `/v1/models` and other requests.
+- The recall goes before the last user message, not into the system prompt, so the model server's prompt cache still covers the earlier messages.
+- It accepts only a model server on this machine. Like the memory server, it refuses requests from web pages: an app that calls the model server from the browser page itself cannot use it. For an app in a Docker Desktop container, use `http://host.docker.internal:8293/v1` (not tested); on Linux, run the container with `--network=host` and use `127.0.0.1`.
+
+Models go to `~/.tsuzuki/models`, the memory server's data to `~/.tsuzuki/memory` (Hermes: `<profile>/tsuzuki`). `node scripts/setup.mjs --help` lists the options (`--for hermes|mcp|chat|app`, `--upstream`, `--models`, `--llama-server`, `--no-facts`, `--yes`, `--start`, `--stop`, ...); running it again is safe and continues an interrupted download.
 
 For DeepSeek Harness, your own model servers, Ollama, or this repository's Mac engine, see [Install (manual)](#install-manual). [CI](.github/workflows/ci.yml) runs this quick start end to end on Linux, Windows and macOS (GitHub's virtual machines, llama.cpp's official CPU builds), up to the check that a message from one conversation is recalled in another. Fact extraction is checked there on Linux only, and connecting Hermes (`--for hermes`) has been run only on a Mac. On Windows, file permissions are those of your user folder.
 
@@ -205,6 +223,7 @@ This public repository starts from a fresh snapshot (its first commit); later co
 - **Real long-term use.** These tests use benchmark histories, not months of real conversations.
 - **Other hardware and the non-Mac path.** Everything was measured on one Mac. The llama.cpp embedding path (EmbeddingGemma 300m, Q8_0 GGUF) was checked against the fp32 engine on that Mac ([`scripts/eval/scale/llamacpp_parity.mjs`](scripts/eval/scale/llamacpp_parity.mjs)): cosine ≥ 0.9997 on 200 message windows and 60 questions, top-10 overlap 0.992, and the same scale-test recall at 500 sessions (0.717 and 0.717) and at 5,000 sessions (0.517 and 0.517). On Linux and Windows it has been run only in CI (GitHub's virtual machines, CPU builds): it works end to end there, but recall quality has **not** been measured on them. The Ollama path has **not** been measured; Ollama's build of EmbeddingGemma 300m may differ numerically from the fp32 engine. EmbeddingGemma 2 has not been measured in setting P (an exploratory LoCoMo check put its retrieval 0.03 recall@10 below 300m).
 - **Other models.** In U2 the answering model, the fact extractor and the judge were all the same local Qwen3.8-27B Q4_K_M. E1 changed only the reader. Cloud models with stronger long-context ability were not tested; such a model could narrow or reverse the gap against the full history.
+- **The proxy and MCP clients.** The proxy uses the tested recall (message windows and facts, 2,048 tokens, before the user's message), but placed in the conversation the app sends rather than in the evaluation template; its effect on answers has not been measured. With MCP clients the model decides when to recall and what to remember; that has not been measured either. Both were checked to work: with Gemma 4 E2B behind the proxy, a new chat answered from an earlier one (in English and in Japanese), and the MCP server was checked with the official MCP Python SDK. They were not tried with each app listed above.
 - **Write-time cost.** The answer times do not include the background work when messages are stored (fact extraction and update checks with the chat model, plus embedding; with Gemma 4 E2B on the M5 Max a median of 4.2 s per conversation, one at a time). The full-history times were measured with llama.cpp's host prompt cache off.
 - **Comparison with published LongMemEval scores.** Not comparable: published scores use a GPT-4o judge and other models.
 - **Precision.** 40 questions give wide intervals. In U2 the primary judge is the same model that answered; the second judge is there to check that.
@@ -359,9 +378,11 @@ On the first start, the sidecar writes a default `config.json` next to the data:
 
 The sidecar reads `config.json` only when it starts: after a change, stop it and start it again.
 
+The proxy (`--for chat` sets it up) is part of the same server: `"proxy": {"enabled": true, "port": 8293, "upstream": "http://127.0.0.1:8080/v1", "apiKey": ""}`. `apiKey` is sent to the model server (the app's own key is the memory's token and is never forwarded); `upstream` must be on this machine unless `"allowRemoteUpstream": true`. The MCP server is `node dsh-plugins/packages/tsuzuki/lib/mcp.js [--config <path>] [--forget]`: it reads the same `config.json` and starts the sidecar when it is not running.
+
 | Endpoint | Request | Response |
 |---|---|---|
-| `GET /health` | | `{status, version, dataDir, stats, embedding, chat}`: `embedding` and `chat` are `{url, ok, lastError, lastErrorAt}`; `stats.unindexed` counts what is not embedded yet |
+| `GET /health` | | `{status, version, pid, dataDir, stats, embedding, chat}`: `embedding` and `chat` are `{url, ok, lastError, lastErrorAt}`; `stats.unindexed` counts what is not embedded yet |
 | `POST /v1/memory/messages` | `{session, messages: [{role, text, id?, at?}]}` | `{stored}`, as soon as the messages are stored |
 | `POST /v1/memory/recall` | `{query, session?, budget_tokens?}`: current session excluded, no rerank | `{text, ids, reranked}`; `text` is the `<memory>` block or `""`. `503 {error, cause}` when the query cannot be embedded |
 | `POST /v1/memory/search` | `{query, budget_tokens?, rerank?}`: all sessions | same |
@@ -396,9 +417,10 @@ Full list: [`dsh-plugins/packages/tsuzuki/README.md`](dsh-plugins/packages/tsuzu
   - The Hermes installer uses the profile's model endpoint only when it is on this machine; for a remote one it stops unless you pass `--allow-remote-chat` (or `--no-chat`).
   - dsh's `llm.baseUrl` defaults to `http://127.0.0.1:8080/v1`. Make sure that port is your local chat server, or set it.
 - **Secret redaction** is on by default. Before anything is stored, embedded or sent to the fact model (queries too), these become `[REDACTED:KIND]`: API keys and tokens (OpenAI, Anthropic, GitHub, GitLab, Hugging Face, AWS, Google, Slack and Slack webhooks, Stripe, npm, SendGrid, Discord), JWTs, bearer and Basic credentials, credentials inside URLs, `password:`/`OPENAI_API_KEY=`/`token:`-style values (including Japanese labels such as パスワード, and "my password is …" when the value has a digit or a symbol), and Luhn-valid card numbers. It is pattern-based and favours precision. **Unusual secrets can slip through.** Do not paste secrets into chats and count on it.
+- **The proxy** sends your chats, with the recalled memory, to the model server you set. It refuses a model server on another machine unless you allow it in the config. It uses the same token and the same checks as the sidecar (it also accepts the host name `host.docker.internal`, for apps in Docker Desktop).
 - **The sidecar.** It listens on `127.0.0.1` only and rejects requests that are not JSON, that carry a browser `Origin`, or that use a `Host` other than loopback (so web pages cannot use it). A config it writes itself, or the Hermes installer writes, has a random `token`: programs that cannot read that file (other users, sandboxes) are refused. A config without a `token` (written by hand, or before this version) lets any program on the machine use it. Another `host` than loopback requires a `token`.
 - **Files.** The memory folder is created readable by you only (0700), the SQLite file and its WAL as 0600, `config.json` as 0600. The embedding engine (`egemma-server`) applies the same Origin, Host and JSON checks.
-- **Forgetting.** The tools `memory_forget` (dsh) and `tsuzuki_forget` (Hermes) are **off by default**: the tool tells the model to state the exact scope and call it only after the user has confirmed it, but that is an instruction to the model, which a web page or pasted text could override. Turn them on with `tool.forget: true` (dsh) or `memory.tsuzuki.forget: true` in the Hermes profile's `config.yaml`. Other hosts use `POST /v1/memory/forget`. Three scopes: one session, everything captured before a date, or everything. The messages, the windows and facts made from them and their update links are deleted, and the SQLite file and its WAL are rewritten, so the text is gone from the file too. There is no per-message delete. Not covered: the host's own session history, copies or backups of the store, and what the local servers have already seen. To erase everything by hand, stop the host and delete the memory directory: dsh `$DSH_HOME/tsuzuki`; Hermes `<profile>/tsuzuki`; sidecar the `dataDir` of its `config.json` (setup: `~/.tsuzuki/memory`; the models in `~/.tsuzuki/models` are separate).
+- **Forgetting.** The tools `memory_forget` (dsh), `tsuzuki_forget` (Hermes) and `forget` (MCP) are **off by default**: the tool tells the model to state the exact scope and call it only after the user has confirmed it, but that is an instruction to the model, which a web page or pasted text could override. Turn them on with `tool.forget: true` (dsh), `memory.tsuzuki.forget: true` in the Hermes profile's `config.yaml`, or `--forget` in the MCP server's arguments. Other hosts use `POST /v1/memory/forget`. Three scopes: one session, everything captured before a date, or everything. The messages, the windows and facts made from them and their update links are deleted, and the SQLite file and its WAL are rewritten, so the text is gone from the file too. There is no per-message delete. Not covered: the host's own session history, copies or backups of the store, and what the local servers have already seen. To erase everything by hand, stop the host and delete the memory directory: dsh `$DSH_HOME/tsuzuki`; Hermes `<profile>/tsuzuki`; sidecar the `dataDir` of its `config.json` (setup: `~/.tsuzuki/memory`; the models in `~/.tsuzuki/models` are separate).
 
 ## Model licenses
 

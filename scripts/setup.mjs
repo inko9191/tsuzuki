@@ -2,14 +2,15 @@
 // One-command setup (macOS, Linux, Windows; needs only Node and llama.cpp's llama-server):
 //   1. builds the plugins and the sidecar,
 //   2. downloads the models after asking (EmbeddingGemma 300m GGUF for search, Gemma 4 E2B GGUF for facts),
-//   3. connects the memory to Hermes Agent, or prepares the HTTP sidecar for any other app,
+//   3. connects the memory to Hermes Agent, or prepares it for MCP clients (Claude Desktop, Claude Code, Cursor,
+//      LM Studio...), for chat apps through a proxy in front of a local model server, or for any app over HTTP,
 //   4. checks that storing, recalling and fact extraction work (in a throwaway store).
 // The memory starts the two llama-servers itself when it needs them; you do not run them.
 // Run with --help for the options.
 import { spawn, spawnSync } from 'node:child_process'
 import { createHash, randomBytes } from 'node:crypto'
-import { chmodSync, createReadStream, createWriteStream, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync,
-  statSync, writeFileSync } from 'node:fs'
+import { chmodSync, createReadStream, createWriteStream, existsSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync,
+  rmSync, statSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { homedir, platform, tmpdir } from 'node:os'
 import { delimiter, dirname, join, resolve } from 'node:path'
@@ -19,11 +20,20 @@ import { fileURLToPath } from 'node:url'
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const PKG = join(ROOT, 'dsh-plugins/packages/tsuzuki')
 const SERVER_JS = join(PKG, 'lib/server.js')
+const MCP_JS = join(PKG, 'lib/mcp.js')
 const WIN = platform() === 'win32'
 const HOME_DIR = join(homedir(), '.tsuzuki')
+const CONFIG = join(HOME_DIR, 'config.json')
+/** Model servers looked for (in this order) when the proxy's upstream is not given. */
+const UPSTREAMS = [['llama.cpp', 'http://127.0.0.1:8080/v1'], ['Ollama', 'http://127.0.0.1:11434/v1'], ['LM Studio', 'http://127.0.0.1:1234/v1']]
 const HELP = `Usage: node scripts/setup.mjs [options]
 
-  --for hermes|app       connect Hermes Agent, or prepare the HTTP sidecar for another app (asked if missing)
+  --for hermes|mcp|chat|app
+                         where the memory is used (asked if missing): Hermes Agent; an MCP client (Claude Desktop,
+                         Claude Code, Cursor, LM Studio...); chat apps, through a proxy in front of your model
+                         server; or another app, over HTTP
+  --upstream URL         with --for chat: your model server's OpenAI-compatible URL (default: the first that answers
+                         of llama.cpp :8080, Ollama :11434, LM Studio :1234)
   --profile NAME         Hermes profile (default: "default", the Hermes home itself)
   --hermes-home DIR      Hermes home (default: $HERMES_HOME, else ~/.hermes; on Windows %LOCALAPPDATA%\\hermes)
   --models DIR           where the models go (default: ~/.tsuzuki/models)
@@ -32,14 +42,15 @@ const HELP = `Usage: node scripts/setup.mjs [options]
   --yes                  do not ask: accept the defaults and the model licenses
   --skip-build           do not rebuild the plugins (if they are built)
   --skip-check           do not run the final check
-  --stop                 stop the llama-servers the memory started, and exit
+  --start                start the memory server in the background and exit (chat apps: after a restart)
+  --stop                 stop the memory server and the llama-servers it started, and exit
   --help                 this text`
 
 // -- options ----------------------------------------------------------------------------------------
 const argv = process.argv.slice(2)
 const opts = {}
-const VALUED = ['for', 'profile', 'hermes-home', 'models', 'llama-server']
-const FLAGS = ['no-facts', 'yes', 'skip-build', 'skip-check', 'stop', 'help', 'accept-gemma-terms']
+const VALUED = ['for', 'profile', 'hermes-home', 'models', 'llama-server', 'upstream']
+const FLAGS = ['no-facts', 'yes', 'skip-build', 'skip-check', 'start', 'stop', 'help', 'accept-gemma-terms']
 for (let i = 0; i < argv.length; i++) {
   const m = /^--([a-z-]+)(?:=(.*))?$/.exec(argv[i])
   if (!m || !(VALUED.includes(m[1]) || FLAGS.includes(m[1]))) { console.error(`unknown argument: ${argv[i]}\n\n${HELP}`); process.exit(2) }
@@ -308,12 +319,82 @@ async function forHermes(llama, files) {
   return { config, configYaml }
 }
 
-async function forApp(llama, files) {
-  step('Preparing the memory server for your app')
-  const path = join(HOME_DIR, 'config.json')
-  const config = configure(path, join(HOME_DIR, 'memory'), 8297, managedSettings(llama, files, HOME_DIR))
-  say(`  settings: ${path} (port ${config.port}; memory in ${config.dataDir})`)
+async function forApp(llama, files, title = 'Preparing the memory server for your app') {
+  step(title)
+  const config = configure(CONFIG, join(HOME_DIR, 'memory'), 8297, managedSettings(llama, files, HOME_DIR))
+  say(`  settings: ${CONFIG} (port ${config.port}; memory in ${config.dataDir})`)
   return { config }
+}
+
+async function answers(url) {
+  try {
+    return (await fetch(`${url}/models`, { signal: AbortSignal.timeout(1500) })).ok
+  } catch {
+    return false
+  }
+}
+
+async function forChat(llama, files) {
+  step('Your model server')
+  let upstream = opts.upstream
+  if (!upstream) {
+    let found = null
+    for (const [name, url] of UPSTREAMS) {
+      if (await answers(url)) { found = url; say(`  found ${name} at ${url}`); break }
+    }
+    upstream = await ask(`\nYour model server's OpenAI-compatible URL [${found ?? UPSTREAMS[0][1]}]:`, found ?? UPSTREAMS[0][1],
+      "your model server's URL (--upstream)")
+  }
+  upstream = upstream.replace(/\/+$/, '')
+  let host = ''
+  try { host = new URL(upstream).hostname } catch { throw new SetupError(`not a URL: ${upstream}`) }
+  if (!['127.0.0.1', 'localhost', '[::1]'].includes(host)) {
+    throw new SetupError(`${upstream} is not on this machine: recalled memory would be sent there. Use a model server on this `
+      + 'machine (to allow another one anyway, set "proxy.allowRemoteUpstream": true in the config yourself).')
+  }
+  const { config } = await forApp(llama, files, 'Preparing the memory proxy for your chat app')
+  config.proxy = { port: 8293, apiKey: '', ...(config.proxy ?? {}), enabled: true, upstream }
+  writeJson(CONFIG, config)
+  say(`  proxy: http://127.0.0.1:${config.proxy.port}/v1 in front of ${upstream}`)
+  if (!await answers(upstream)) say(`  note: ${upstream} does not answer now; start your model server before you chat`)
+  return { config }
+}
+
+async function health(config) {
+  try {
+    const r = await fetch(`http://127.0.0.1:${config.port}/health`, { headers: { authorization: `Bearer ${config.token}` },
+      signal: AbortSignal.timeout(2000) })
+    return r.ok ? await r.json() : null
+  } catch {
+    return null
+  }
+}
+
+/** Starts the memory server of CONFIG in the background (left running), unless it is running already. */
+async function startServer() {
+  if (!existsSync(CONFIG) || !existsSync(SERVER_JS)) throw new SetupError(`${CONFIG} does not exist: run the setup first`)
+  const config = JSON.parse(readFileSync(CONFIG, 'utf8'))
+  if (await health(config)) return say(`  the memory server is running (port ${config.port})`)
+  const log = openSync(join(HOME_DIR, 'sidecar.log'), 'a', 0o600)
+  spawn(process.execPath, [SERVER_JS, '--config', CONFIG], { detached: true, stdio: ['ignore', log, log], windowsHide: true }).unref()
+  for (let i = 0; i < 60; i++) {
+    if (await health(config)) return say(`  ✓ the memory server is running in the background (port ${config.port})`)
+    await new Promise(r => setTimeout(r, 1000))
+  }
+  throw new SetupError(`the memory server did not start; see ${join(HOME_DIR, 'sidecar.log')}`)
+}
+
+/** Stops the memory server of CONFIG (the one --start or an MCP client started). */
+async function stopServer() {
+  if (!existsSync(CONFIG)) return
+  const h = await health(JSON.parse(readFileSync(CONFIG, 'utf8')))
+  if (!h?.pid) return say('The memory server was not running.')
+  try {
+    process.kill(h.pid)
+    say('Stopped the memory server.')
+  } catch (error) {
+    say(`Could not stop the memory server (pid ${h.pid}): ${error.message}`)
+  }
 }
 
 // -- 5. check -------------------------------------------------------------------------------------
@@ -331,7 +412,7 @@ async function check(config, withFacts) {
   rmSync(dir, { recursive: true, force: true })
   const port = await freePort()
   const token = randomBytes(16).toString('hex')
-  writeJson(join(dir, 'config.json'), { ...config, port, token, dataDir: join(dir, 'data') })
+  writeJson(join(dir, 'config.json'), { ...config, port, token, dataDir: join(dir, 'data'), proxy: { ...config.proxy, enabled: false } })
   const child = spawn(process.execPath, [SERVER_JS, '--config', join(dir, 'config.json')], { stdio: ['ignore', 'pipe', 'pipe'] })
   const exited = new Promise(r => child.once('exit', r))
   let output = ''
@@ -386,35 +467,63 @@ function stopServers() {
 
 // -- main ------------------------------------------------------------------------------------------
 async function main() {
-  if (opts.stop) return stopServers()
+  if (opts.stop) {
+    await stopServer()
+    return stopServers()
+  }
+  if (opts.start) return startServer()
   say('tsuzuki setup  (Ctrl+C stops it at any time; running it again continues)')
   if (!nodeOk()) throw new SetupError(`Node ${process.versions.node} is not supported: install Node 22 (22.19 or later) or 24+ (https://nodejs.org)`)
   let target = opts.for?.toLowerCase()
-  if (target && !['hermes', 'app'].includes(target)) throw new SetupError(`--for must be "hermes" or "app", not "${opts.for}"`)
+  if (target && !['hermes', 'mcp', 'chat', 'app'].includes(target)) {
+    throw new SetupError(`--for must be "hermes", "mcp", "chat" or "app", not "${opts.for}"`)
+  }
   if (!opts['skip-build'] || !existsSync(SERVER_JS)) build()
   const llama = llamaServer()
   privateDir(HOME_DIR)
   const files = await models(resolve(opts.models || join(HOME_DIR, 'models')))
   if (!target) {
-    const answer = await ask('\nWhere will you use the memory?\n  1) Hermes Agent\n  2) another app (HTTP sidecar on 127.0.0.1)\nChoose [1]:', '1',
-      'where to use the memory (--for hermes or --for app)')
-    target = answer.startsWith('2') ? 'app' : 'hermes'
+    const answer = await ask('\nWhere will you use the memory?\n'
+      + '  1) Hermes Agent\n'
+      + '  2) an MCP client: Claude Desktop, Claude Code, Cursor, LM Studio, Jan, Cline...\n'
+      + '  3) chat apps with your own model server (llama.cpp, Ollama, LM Studio...): memory in every chat\n'
+      + '  4) another app (HTTP API on 127.0.0.1)\nChoose [1]:', '1', 'where to use the memory (--for hermes, mcp, chat or app)')
+    target = { 2: 'mcp', 3: 'chat', 4: 'app' }[answer.trim()[0]] ?? 'hermes'
   }
-  const result = target === 'hermes' ? await forHermes(llama, files) : await forApp(llama, files)
+  const result = target === 'hermes' ? await forHermes(llama, files)
+    : target === 'mcp' ? await forApp(llama, files, 'Preparing the memory for MCP clients')
+      : target === 'chat' ? await forChat(llama, files) : await forApp(llama, files)
   if (!opts['skip-check']) await check(result.config, Boolean(files.facts))
+  if (target === 'chat') {
+    step('Starting the memory server')
+    await startServer()
+  }
   step('Done')
   const node = `"${process.execPath}"`
   if (target === 'hermes') {
     say('  Start Hermes. The memory and its models start by themselves when Hermes first needs them.')
     say('  Check it with:  hermes memory status')
     say(`  To let the agent delete memory when you ask, add  forget: true  under  memory: > tsuzuki:  in ${result.configYaml}`)
+  } else if (target === 'mcp') {
+    say('  Add the memory to your MCP client. Claude Code:')
+    say(`    claude mcp add --scope user tsuzuki -- ${node} "${MCP_JS}"`)
+    say('  Claude Desktop, Cursor, LM Studio, Jan, Cline... (in their MCP settings: claude_desktop_config.json, mcp.json):')
+    say(JSON.stringify({ mcpServers: { tsuzuki: { command: process.execPath, args: [MCP_JS] } } }, null, 2).replace(/^/gm, '    '))
+    say('  The client starts the memory when it needs it. The model calls recall and remember itself; to let it delete')
+    say('  memory when you ask, add "--forget" to args.')
+  } else if (target === 'chat') {
+    say('  In your chat app, use this OpenAI-compatible connection instead of your model server:')
+    say(`    URL:      http://127.0.0.1:${result.config.proxy.port}/v1`)
+    say(`    API key:  ${result.config.token}`)
+    say(`  Every chat is stored and earlier chats are recalled; ${result.config.proxy.upstream} still answers.`)
+    say(`  After restarting the computer, start the memory again:  ${node} "${join(ROOT, 'scripts/setup.mjs')}" --start`)
   } else {
     say(`  Start the memory server (keep it running while your app uses it):\n    ${node} "${SERVER_JS}"`)
     say(`  Your app sends JSON to http://127.0.0.1:${result.config.port} with  Authorization: Bearer <token>  (the token is in ${join(HOME_DIR, 'config.json')}).`)
     say('  Endpoints: POST /v1/memory/messages, /v1/memory/recall, /v1/memory/search (see the README).')
   }
   say('  The models\' llama-servers keep running in the background so the next start is fast (about 0.5 GB of memory,')
-  say(`  4 GB more with facts). Stop them with:  ${node} "${join(ROOT, 'scripts/setup.mjs')}" --stop`)
+  say(`  4 GB more with facts). Stop everything with:  ${node} "${join(ROOT, 'scripts/setup.mjs')}" --stop`)
 }
 
 main().catch(error => {
