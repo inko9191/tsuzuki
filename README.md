@@ -1,22 +1,32 @@
-# tsuzuki: local long-term memory for agents
+# tsuzuki: local long-term memory for agents and chat apps
 
-**Your agent remembers earlier conversations, and nothing leaves your machine.**
+**Your AI remembers earlier conversations, and nothing leaves your machine.**
 
-[![CI](https://github.com/inko9191/tsuzuki/actions/workflows/ci.yml/badge.svg)](https://github.com/inko9191/tsuzuki/actions/workflows/ci.yml)
+[![CI](https://github.com/inko9191/tsuzuki/actions/workflows/ci.yml/badge.svg)](https://github.com/inko9191/tsuzuki/actions/workflows/ci.yml) · Apache-2.0 · [日本語の README](README.ja.md)
 
-[日本語の README](README.ja.md)
+<p align="center"><img src="docs/images/demo-en.gif" width="420" alt="Chat 1: the user says they started a part-time job at a ramen shop called Menya Kaze. In a new chat they ask where they work; tsuzuki recalls the earlier message and Gemma 4 E2B answers: Menya Kaze. The same model without tsuzuki asks for more context."></p>
 
-- tsuzuki stores what you and your agent said in past sessions.
-- Before each new message, it hands back the relevant past messages, with their dates: a **recall of at most 2,048 tokens instead of the full history**.
-- Everything runs locally:
-  - EmbeddingGemma 300m for search (through this repository's engine on a Mac, or llama.cpp / Ollama elsewhere);
-  - your local chat model to pull facts out of past sessions (tested: Qwen 27B and Gemma 4 E2B on llama.cpp).
+- **Remembers across chats.** Before each message, the model gets the relevant excerpts from earlier conversations, with their dates: at most 2,048 tokens, not the whole history.
+- **Runs on your machine.** EmbeddingGemma 300m finds the excerpts, and a small local model (Gemma 4 E2B) pulls facts out of past conversations. Nothing is sent anywhere unless you point it at a cloud model.
+- **Plugs into what you use.** Chat apps on llama.cpp, Ollama or LM Studio (change one URL; no tool calls needed), MCP clients (Claude Desktop, Claude Code, Cursor, LM Studio, Jan, Cline), Hermes Agent, DeepSeek Harness, or any program over HTTP.
+- **Measured before it was claimed.** Every test below was pre-registered: the decision rules were fixed in writing before any answer was generated.
 
-It works with:
-- **chat apps on your own model server** (Open WebUI, SillyTavern, LibreChat, Continue... with llama.cpp, Ollama or LM Studio), through a proxy that gives every chat memory, with no tool calls;
-- **MCP clients** (Claude Desktop, Claude Code, Cursor, LM Studio, Jan, Cline...), as tools;
-- [DeepSeek Harness (dsh)](https://github.com/deepseek-ai/deepseek-harness) as a plugin, and Hermes Agent as a memory provider;
-- anything else through a small HTTP sidecar on `127.0.0.1`.
+<p align="center">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/results-en-dark.png">
+  <img src="docs/images/results-en-light.png" width="560" alt="Correct answers with tsuzuki's 2,048-token memory vs the whole history in the context, 40 questions per test. Gemma 4 E2B, English: 0.525 vs 0.375 (at least equivalent). Gemma 4 E2B, Japanese: 0.550 vs 0.275 (better). Qwen 27B, English: 0.675 vs 0.450 (better). Qwen 27B, Japanese: 0.725 vs 0.750 (same within noise).">
+</picture>
+</p>
+
+With the small Gemma 4 E2B, the memory answered better than the whole history (Japanese: better; English: at least equivalent). With Qwen 27B it was better in English and the same within noise in Japanese. Either way the model read 1/14 to 1/40 of the input. Intervals and limits: [Results](#results-pre-registered) and [What is not shown](#what-is-not-shown).
+
+**Try it** (Node.js 22.19+ and llama.cpp; [details below](#quick-start-macos-linux-windows)):
+
+```bash
+git clone https://github.com/inko9191/tsuzuki
+cd tsuzuki
+node scripts/setup.mjs
+```
 
 The repository also contains **an unofficial inference engine for EmbeddingGemma models (not affiliated with Google)**, written in C++/Metal for Apple silicon.
 

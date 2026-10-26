@@ -197,7 +197,7 @@ Made in the development repository first (branch `dsh-plugin`, up to commit `bb1
 | `dsh-plugins/packages/tsuzuki/test/mcp.test.mjs` | `34cf0634fe4f227d01c013e720c6ed42084bbb58e7e5a2fad0e784d9f586bbf3` | `dsh-plugins/packages/memory-egemma/test/mcp.test.mjs` | `ba196f07a24b6eeefc57a46ff89629945f78c7f15f3b3ea7048280beac1cd46c` | renamed as in "Renamed to tsuzuki" |
 | `dsh-plugins/packages/tsuzuki/test/proxy.test.mjs` | `e61d978c91d7f50f393673f9bf8eddf0e934c1fdf87f29f967b7fef9fde721b3` | `dsh-plugins/packages/memory-egemma/test/proxy.test.mjs` | `e61d978c91d7f50f393673f9bf8eddf0e934c1fdf87f29f967b7fef9fde721b3` | same file |
 
-Only in this repository: `.github/workflows/ci.yml` (tests on Linux, Windows and macOS, and the quick start end to end).
+Only in this repository: `.github/workflows/ci.yml` (tests on Linux, Windows and macOS, and the quick start end to end), and `docs/images/` (the README's demo and results chart, with the scripts and transcripts they were made from).
 
 ## Left out
 

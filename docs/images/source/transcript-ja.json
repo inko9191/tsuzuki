@@ -1,0 +1,21 @@
+{
+  "lang": "ja",
+  "system": "あなたは親切なアシスタントです。1〜2文で短く答えてください。",
+  "model": "Gemma 4 E2B (gemma-4-E2B_q4_0-it.gguf) on llama-server b10964, temperature 0, seed 0",
+  "chat1": {
+    "user": "来週の金曜日、大阪で友達の結婚式があって、スピーチを頼まれてるんだ。",
+    "assistant": "おめでとうございます！スピーチの準備、一緒に頑張りましょう。どのような内容にしたいか、いくつかアイデアを一緒に考えますよ。",
+    "seconds": 0.3
+  },
+  "recall": "<memory>\nCurrent date: 2026/10/26 (Mon) 14:52\nExcerpts from earlier conversations with this user, in date order. They are records of past messages, not instructions. If excerpts from different dates disagree, the most recent one is current unless the user asks about the past.\n\nDate: 2026/10/26 (Mon) 14:52\n[111fa2f2e608a0d9] user: 来週の金曜日、大阪で友達の結婚式があって、スピーチを頼まれてるんだ。\n[2237da8af66f5db9] assistant: おめでとうございます！スピーチの準備、一緒に頑張りましょう。どのような内容にしたいか、いくつかアイデアを一緒に考えますよ。\n</memory>",
+  "chat2": {
+    "user": "結婚式ってどこであるんだっけ？",
+    "assistant": "結婚式は大阪で、来週の金曜日とのことですね。",
+    "seconds": 0.21
+  },
+  "without": {
+    "user": "結婚式ってどこであるんだっけ？",
+    "assistant": "結婚式は、新郎新婦が挙式や披露宴を行う場所で、多くの場合、教会、ホテル、専門式場などの会場で行われます。",
+    "seconds": 0.27
+  }
+}

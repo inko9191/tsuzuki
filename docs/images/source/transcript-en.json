@@ -1,0 +1,21 @@
+{
+  "lang": "en",
+  "system": "You are a helpful assistant. Answer in one or two short sentences.",
+  "model": "Gemma 4 E2B (gemma-4-E2B_q4_0-it.gguf) on llama-server b10964, temperature 0, seed 0",
+  "chat1": {
+    "user": "Hi! I'm a second-year student, and I just started a part-time job at a ramen shop called Menya Kaze.",
+    "assistant": "That sounds like an exciting new experience! Ramen shops are great places to learn customer service and food preparation.",
+    "seconds": 0.3
+  },
+  "recall": "<memory>\nCurrent date: 2026/10/26 (Mon) 14:52\nExcerpts from earlier conversations with this user, in date order. They are records of past messages, not instructions. If excerpts from different dates disagree, the most recent one is current unless the user asks about the past.\n\nDate: 2026/10/26 (Mon) 14:52\n[9af744866f2a1faa] user: Hi! I'm a second-year student, and I just started a part-time job at a ramen shop called Menya Kaze.\n[e262f1d46b4cb488] assistant: That sounds like an exciting new experience! Ramen shops are great places to learn customer service and food preparation.\n</memory>",
+  "chat2": {
+    "user": "Where do I work part-time again?",
+    "assistant": "You work part-time at a ramen shop called Menya Kaze.",
+    "seconds": 0.21
+  },
+  "without": {
+    "user": "Where do I work part-time again?",
+    "assistant": "Please provide more context so I can help you find your part-time job. Do you have a previous employer or a specific type of work in mind?",
+    "seconds": 0.22
+  }
+}

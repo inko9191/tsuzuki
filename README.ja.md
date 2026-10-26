@@ -1,22 +1,32 @@
-# tsuzuki：エージェントのための、ローカルで動く長期記憶
+# tsuzuki：エージェントとチャットアプリのための、ローカルで動く長期記憶
 
-**エージェントが前の会話を覚えている。しかも、何もマシンの外に出ない。**
+**AI が前の会話を覚えている。しかも、何もマシンの外に出ない。**
 
-[![CI](https://github.com/inko9191/tsuzuki/actions/workflows/ci.yml/badge.svg)](https://github.com/inko9191/tsuzuki/actions/workflows/ci.yml)
+[![CI](https://github.com/inko9191/tsuzuki/actions/workflows/ci.yml/badge.svg)](https://github.com/inko9191/tsuzuki/actions/workflows/ci.yml) · Apache-2.0 · [English README](README.md)
 
-[English README](README.md)
+<p align="center"><img src="docs/images/demo-ja.gif" width="420" alt="チャット 1 で、来週の金曜日に大阪で友達の結婚式があると話す。新しいチャットで結婚式の場所を聞くと、tsuzuki が前の発言を思い出し、Gemma 4 E2B が「大阪で、来週の金曜日」と答える。tsuzuki なしの同じモデルは、結婚式場の一般論を答える。"></p>
 
-- tsuzuki は、あなたとエージェントの過去の会話を保存する。
-- 新しい発言のたびに、関係する過去の発言を日付つきで渡す。渡すのは**最大 2,048 トークンの記憶で、全履歴ではない**。
-- すべてローカルで動く。
-  - 検索は EmbeddingGemma 300m（Mac ではこのリポジトリのエンジン、ほかでは llama.cpp か Ollama）。
-  - 過去の会話からの事実の抽出は、手元のチャットモデル（検証は llama.cpp 上の Qwen 27B と Gemma 4 E2B）。
+- **チャットをまたいで覚える**：発言のたびに、前の会話から関係する部分を日付つきでモデルに渡す。最大 2,048 トークンで、全履歴ではない。
+- **全部手元で動く**：探すのは EmbeddingGemma 300m、過去の会話から事実を抜き出すのは小さいローカルモデル（Gemma 4 E2B）。クラウドのモデルを指定しない限り、どこにも送らない。
+- **今使っているものにつながる**：llama.cpp・Ollama・LM Studio を使うチャットアプリ（URL を 1 つ変えるだけ。ツールの呼び出しは要らない）、MCP クライアント（Claude Desktop、Claude Code、Cursor、LM Studio、Jan、Cline）、Hermes Agent、DeepSeek Harness、HTTP で何でも。
+- **言う前に測った**：下の試験はすべて事前登録。答えを出す前に、判定のルールを書いて固定した。
 
-使える相手：
-- **自分のモデルのサーバーを使うチャットアプリ**（llama.cpp、Ollama、LM Studio などにつないだ Open WebUI、SillyTavern、LibreChat、Continue など）：間に挟むプロキシで、どのチャットにも記憶が効く。ツールの呼び出しは要らない。
-- **MCP クライアント**（Claude Desktop、Claude Code、Cursor、LM Studio、Jan、Cline など）：ツールとして。
-- [DeepSeek Harness（dsh）](https://github.com/deepseek-ai/deepseek-harness)のプラグイン、Hermes Agent の記憶プロバイダ。
-- そのほか何でも：`127.0.0.1` の小さな HTTP サイドカーで。
+<p align="center">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/results-ja-dark.png">
+  <img src="docs/images/results-ja-light.png" width="560" alt="正答率、tsuzuki の記憶（2,048 トークン）と全履歴。各 40 問。Gemma 4 E2B・英語：0.525 対 0.375（同等以上）。Gemma 4 E2B・日本語：0.550 対 0.275（上回る）。Qwen 27B・英語：0.675 対 0.450（上回る）。Qwen 27B・日本語：0.725 対 0.750（誤差の範囲）。">
+</picture>
+</p>
+
+小さい Gemma 4 E2B では、全履歴より記憶のほうが当たった（日本語は上回る、英語は同等以上）。Qwen 27B では英語で上回り、日本語は誤差の範囲で同じ。どれも、モデルが読む量は全履歴の 1/14〜1/40。区間と限界は[結果](#結果事前登録)と[まだ示していないこと](#まだ示していないこと)。
+
+**試す**（Node.js 22.19 以上と llama.cpp。[詳しくは下](#すぐに使うmacoslinuxwindows)）：
+
+```bash
+git clone https://github.com/inko9191/tsuzuki
+cd tsuzuki
+node scripts/setup.mjs
+```
 
 このリポジトリには、**EmbeddingGemma のモデルを動かす非公式の推論エンジン（Google とは無関係）**も入っている。Apple シリコン向けの C++/Metal 実装。
 
