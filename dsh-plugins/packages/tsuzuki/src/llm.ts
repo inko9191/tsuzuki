@@ -23,6 +23,11 @@ export class ChatUnavailableError extends Error {
   override readonly name = 'ChatUnavailableError'
 }
 
+/** The reply reached `max_tokens`. Requests use temperature 0 and a fixed seed, so the same request would stop again. */
+export class OutputLimitError extends Error {
+  override readonly name = 'OutputLimitError'
+}
+
 /** A connection reset or closed by the other side (undici: `ECONNRESET`, `EPIPE`, `UND_ERR_SOCKET`). */
 export function socketReset(error: unknown): boolean {
   const cause = (error as { cause?: { code?: unknown, message?: unknown } } | null)?.cause
@@ -97,6 +102,7 @@ export class OpenAIChat implements ChatModel {
     const value = await response.json() as { choices?: Array<{ message?: { content?: string | null }, finish_reason?: string }> }
     const choice = value.choices?.[0]
     if (!choice) throw new Error('chat completion without choices')
+    if (choice.finish_reason === 'length') throw new OutputLimitError('generation stopped: length')
     if (choice.finish_reason && choice.finish_reason !== 'stop') throw new Error(`generation stopped: ${choice.finish_reason}`)
     return choice.message?.content ?? ''
   }

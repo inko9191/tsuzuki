@@ -611,7 +611,9 @@ export class Memory {
         this.chatDown = true
         return false
       }
-      this.store.finishSegment(segment.id, null, String(error), this.options.maxAttempts)
+      // A reply cut at the token limit would be cut again (temperature 0): give up at once instead of retrying.
+      const attempts = (error as Error).name === 'OutputLimitError' ? 1 : this.options.maxAttempts
+      this.store.finishSegment(segment.id, null, String(error), attempts)
       this.log('warn', `fact extraction failed for ${segment.id}: ${String(error)}`)
       return true
     }

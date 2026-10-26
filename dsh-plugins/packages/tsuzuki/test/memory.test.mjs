@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { MemoryStore } from '../lib/store.js'
 import { Memory, clip, estimateTokens, formatDate } from '../lib/memory.js'
-import { ChatUnavailableError, OpenAIChat } from '../lib/llm.js'
+import { ChatUnavailableError, OpenAIChat, OutputLimitError } from '../lib/llm.js'
 
 // Bag-of-words vectors: shared words -> higher cosine. Deterministic, 64 dims.
 function vectorFor(text) {
@@ -128,6 +128,17 @@ test('unparseable or failed extraction retries then gives up', async () => {
   assert.equal(store.stats().segmentsFailed, 1)
 })
 
+test('a reply cut at the output limit is not retried (temperature 0 would cut it again)', async () => {
+  let n = 0
+  const chat = fakeChat(() => { n++; throw new OutputLimitError('generation stopped: length') })
+  const { store, memory } = fresh({ maxAttempts: 3, updateLinks: false }, chat)
+  await memory.capture({ id: 'a1', session: 's1', role: 'user', text: 'hello', at: day })
+  memory.closeAll()
+  for (let k = 0; k < 3; k++) await memory.drain()
+  assert.equal(n, 1)
+  assert.equal(store.stats().segmentsFailed, 1)
+})
+
 test('working memory: only messages a compaction removed from context are recalled from the current session', async () => {
   const { memory } = fresh({ updateLinks: false })
   await memory.capture({ id: 'w-1', session: 'task', role: 'tool', text: '[error] E4242 widget config is missing retry_timeout', at: day })
@@ -185,6 +196,19 @@ test('OpenAIChat reports a closed port or a loading server as ChatUnavailableErr
   await new Promise(r => server.close(r))
   const closed = new OpenAIChat({ baseUrl: `http://127.0.0.1:${port}/v1`, model: 'm', apiKey: '', timeoutMs: 2000, extraBody: {} })
   await assert.rejects(closed.complete([{ role: 'user', content: 'x' }], options), e => e.name === 'ChatUnavailableError')
+})
+
+test('OpenAIChat reports a reply cut at max_tokens as OutputLimitError', async () => {
+  const { createServer } = await import('node:http')
+  const server = createServer((req, res) => {
+    res.setHeader('Content-Type', 'application/json')
+    res.end(JSON.stringify({ choices: [{ message: { content: '{"facts": [' }, finish_reason: 'length' }] }))
+  })
+  await new Promise(r => server.listen(0, '127.0.0.1', r))
+  const chat = new OpenAIChat({ baseUrl: `http://127.0.0.1:${server.address().port}/v1`, model: 'm', apiKey: '', timeoutMs: 2000, extraBody: {} })
+  await assert.rejects(chat.complete([{ role: 'user', content: 'x' }], { maxTokens: 8, schema: {}, name: 'fact' }),
+    e => e.name === 'OutputLimitError' && /generation stopped: length/.test(e.message))
+  await new Promise(r => server.close(r))
 })
 
 test('drain yields when the chat model is busy', async () => {
