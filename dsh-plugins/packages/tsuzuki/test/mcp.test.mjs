@@ -71,7 +71,7 @@ test('mcp: initialize, tools, ping, errors; forget only when enabled', async () 
 
   const empty = await h.handle(call(6, 'recall', { query: 'anything' }))
   assert.equal(empty.result.content[0].text, 'No matching memories.')
-  assert.deepEqual(posted[0], { path: '/v1/memory/recall', body: { query: 'anything', session: h.session } })
+  assert.deepEqual(posted[0], { path: '/v1/memory/recall', body: { query: 'anything' } }, 'one server process serves many chats: nothing is excluded')
   const bad = await h.handle(call(7, 'remember', { messages: [{ role: 'system', text: 'x' }] }))
   assert.equal(bad.result.isError, true)
   assert.equal(h.saved, false)
@@ -79,8 +79,9 @@ test('mcp: initialize, tools, ping, errors; forget only when enabled', async () 
   const withForget = mcpHandler(sidecar, { forget: true })
   const all = (await withForget.handle({ jsonrpc: '2.0', id: 1, method: 'tools/list' })).result.tools.map(t => t.name)
   assert.deepEqual(all, ['recall', 'remember', 'forget'])
-  const refused = await withForget.handle(call(2, 'forget', { session: 'someone-else' }))
-  assert.equal(refused.result.isError, true, 'only this conversation can be named')
+  for (const bad of [{ session: 'current' }, {}, { all: true, before: '2026-01-01' }, { all: false }]) {
+    assert.equal((await withForget.handle(call(2, 'forget', bad))).result.isError, true, JSON.stringify(bad))
+  }
 })
 
 test('mcp: what one client remembers, another recalls (one sidecar, its token)', async () => {
@@ -99,9 +100,6 @@ test('mcp: what one client remembers, another recalls (one sidecar, its token)',
     assert.equal(saved.result.content[0].text, 'Saved 2 message(s) to long-term memory.')
     assert.equal(desktop.saved, true)
 
-    const own = await desktop.handle(call(3, 'recall', { query: 'Hana violinist Vienna' }))
-    assert.equal(own.result.content[0].text, 'No matching memories.', 'the current conversation is not recalled back')
-
     const cursor = mcpHandler(sidecar, { forget: false })
     await cursor.handle({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { clientInfo: { name: 'cursor' } } })
     let found
@@ -112,7 +110,7 @@ test('mcp: what one client remembers, another recalls (one sidecar, its token)',
     }
     assert.match(found.result.content[0].text, /^<memory>\n[\s\S]*violinist in Vienna[\s\S]*<\/memory>$/)
 
-    const forgot = await desktop.handle(call(4, 'forget', { session: 'current' }))
+    const forgot = await desktop.handle(call(4, 'forget', { all: true }))
     assert.match(forgot.result.content[0].text, /^Deleted: /)
     const gone = await cursor.handle(call(3, 'recall', { query: 'Hana violinist Vienna' }))
     assert.equal(gone.result.content[0].text, 'No matching memories.')
@@ -165,5 +163,25 @@ test('mcp: node lib/mcp.js starts the sidecar, answers over stdio, and leaves th
       .then(r => r.json()).catch(() => ({}))).pid
     if (pid) try { process.kill(pid) } catch {}
     await emb.close()
+  }
+})
+
+test('mcp: a program that took the port gets no token, and the client says why', async () => {
+  const seen = []
+  const impostor = createServer((req, res) => {
+    seen.push(req.headers.authorization ?? null)
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({ status: 'ok', pid: 1 }))
+  })
+  await new Promise(r => impostor.listen(0, '127.0.0.1', r))
+  const dir = mkdtempSync(join(tmpdir(), 'mcp-'))
+  const { path } = writeConfig(dir, 'http://127.0.0.1:9/v1', impostor.address().port)
+  try {
+    const sidecar = httpSidecar(path, join(LIB, 'server.js'))
+    assert.equal(await sidecar.health(), null)
+    await assert.rejects(sidecar.post('/v1/memory/recall', { query: 'x' }), /another program answers on port/)
+    assert.deepEqual(seen.filter(Boolean), [], 'the token was never sent')
+  } finally {
+    await new Promise(r => impostor.close(r))
   }
 })

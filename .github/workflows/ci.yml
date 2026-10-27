@@ -89,7 +89,17 @@ jobs:
           key: models-${{ matrix.facts == '' && 'facts' || 'search' }}-v1
       - name: node scripts/setup.mjs
         shell: bash
-        run: node scripts/setup.mjs --yes --for app --models "$HOME/tsuzuki-models" --llama-server "$LLAMA_SERVER" ${{ matrix.facts }}
+        run: node scripts/setup.mjs --yes --report --for app --models "$HOME/tsuzuki-models" --llama-server "$LLAMA_SERVER" ${{ matrix.facts }}
+      - name: The memory from the terminal (import a ChatGPT export, search it)
+        shell: bash
+        run: |
+          node --input-type=module -e "import { writeFileSync } from 'node:fs'; import { chatgptExport } from './dsh-plugins/packages/tsuzuki/test/fixtures/exports.mjs'; writeFileSync('conversations.json', JSON.stringify(chatgptExport()))"
+          node scripts/memory.mjs import conversations.json
+          for i in $(seq 60); do node scripts/memory.mjs status | grep -q ' 0 not searchable' && break; sleep 2; done
+          node scripts/memory.mjs status
+          node scripts/memory.mjs recent
+          node scripts/memory.mjs search "what does my cat eat" | tee search.txt
+          grep -q Mochi search.txt
       - name: Stop the llama-servers
         if: always()
         shell: bash

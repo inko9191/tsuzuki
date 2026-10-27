@@ -618,3 +618,27 @@ test('embedding.llamacpp and chat.llamacpp: the sidecar starts llama-server on d
     try { unlinkSync(binary) } catch {}
   }
 })
+
+test('/health: without the token only a proof that this server knows it (clients check it before they send the token)', async () => {
+  const { healthProof, provesToken } = await import('../lib/server.js')
+  const emb = await fakeEmbeddings()
+  const dir = mkdtempSync(join(tmpdir(), 'sidecar-'))
+  const config = { ...defaults(dir), port: 0, token: 'tok', embedding: { ...defaults(dir).embedding, baseUrl: emb.url, autoPull: false } }
+  const s = await start(config)
+  try {
+    const nonce = 'n'.repeat(32)
+    const anonymous = await fetch(`http://127.0.0.1:${s.port}/health?nonce=${nonce}`).then(r => r.json())
+    assert.deepEqual(Object.keys(anonymous), ['proof'], 'nothing else is told without the token')
+    assert.equal(anonymous.proof, healthProof('tok', nonce))
+    assert.equal(provesToken(anonymous.proof, 'tok', nonce), true)
+    assert.equal(provesToken(anonymous.proof, 'other', nonce), false)
+    assert.equal(provesToken(healthProof('tok', 'x'.repeat(32)), 'tok', nonce), false, 'a proof for another nonce')
+    assert.equal((await fetch(`http://127.0.0.1:${s.port}/health`)).status, 401)
+    assert.equal((await fetch(`http://127.0.0.1:${s.port}/health?nonce=short`)).status, 401)
+    const full = await fetch(`http://127.0.0.1:${s.port}/health?nonce=${nonce}`, { headers: { authorization: 'Bearer tok' } }).then(r => r.json())
+    assert.equal(full.status, 'ok', 'with the token, the usual health')
+  } finally {
+    await s.close()
+    await emb.close()
+  }
+})

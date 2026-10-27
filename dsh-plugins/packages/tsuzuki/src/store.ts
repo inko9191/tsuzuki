@@ -161,6 +161,19 @@ export class MemoryStore {
     return this.db.prepare('SELECT * FROM turns WHERE session = ? AND pos >= ? ORDER BY pos').all(session, fromPos) as unknown as StoredTurn[]
   }
 
+  /** Turns whose id starts with `prefix` (served by the id index). */
+  turnsWithIdPrefix(prefix: string): StoredTurn[] {
+    return this.db.prepare('SELECT * FROM turns WHERE id >= ? AND id < ? ORDER BY seq').all(prefix, prefix + '\uffff') as unknown as StoredTurn[]
+  }
+
+  /** Sessions, the most recently active first (all when `limit` is negative), with their first message. */
+  sessions(limit = -1): Array<{ session: string, messages: number, first: number, last: number, preview: string }> {
+    return this.db.prepare(`SELECT t.session AS session, COUNT(*) AS messages, MIN(t.at) AS first, MAX(t.at) AS last,
+        (SELECT f.text FROM turns f WHERE f.session = t.session ORDER BY f.pos LIMIT 1) AS preview
+      FROM turns t GROUP BY t.session ORDER BY last DESC, t.session LIMIT ?`).all(limit) as unknown as
+      Array<{ session: string, messages: number, first: number, last: number, preview: string }>
+  }
+
   // -- units ----------------------------------------------------------------------------
 
   addUnit(unit: StoredUnit): void {

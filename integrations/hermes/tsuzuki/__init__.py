@@ -18,6 +18,8 @@ Where the two paths come from (first hit wins):
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import secrets
 import logging
@@ -52,6 +54,7 @@ PLUGIN_DIR = Path(__file__).resolve().parent
 
 # Seconds. Module-level so tests can shorten them.
 HEALTH_TIMEOUT_S = 1.5
+PROOF_INTERVAL_S = 30.0          # how long a proof that the sidecar knows the token is trusted
 STARTUP_TIMEOUT_S = 45.0          # a slow or busy machine's first Node start can take well over 15 s
 # The sidecar answers a recall within ~3.5 s even when its embedding model hangs (0.5 s for pending indexing, 3 s
 # for the query embedding); MemoryManager gives prefetch() 8 s in total.
@@ -376,6 +379,27 @@ class SidecarError(RuntimeError):
 _OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
+def _proves_token(base_url: str, token: str, timeout: float) -> Optional[bool]:
+    """Whether the program on `base_url` is a sidecar that knows `token`: True when it answers a nonce with the right
+    HMAC (asked without sending the token), False when something else answers, None when nothing answers. So a program
+    that took the port while the sidecar was down never receives the token or a conversation."""
+    nonce = secrets.token_hex(16)
+    request = urllib.request.Request(f"{base_url}/health?nonce={nonce}", headers={"Accept": "application/json"})
+    try:
+        with _OPENER.open(request, timeout=timeout) as response:
+            body = json.loads(response.read() or b"{}")
+    except urllib.error.HTTPError as exc:
+        exc.close()
+        return False
+    except ValueError:
+        return False
+    except (urllib.error.URLError, OSError):
+        return None
+    expected = hmac.new(token.encode(), f"tsuzuki-health:{nonce}".encode(), hashlib.sha256).hexdigest()
+    proof = body.get("proof") if isinstance(body, dict) else None
+    return isinstance(proof, str) and hmac.compare_digest(proof, expected)
+
+
 def _http_json(base_url: str, method: str, path: str, payload: Optional[dict[str, Any]] = None,
                timeout: float = 5.0, token: str = "") -> dict[str, Any]:
     data = None if payload is None else json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -477,6 +501,8 @@ class TsuzukiProvider(MemoryProvider):
         self._retry: "deque[tuple[str, dict[str, Any]]]" = deque()
         self._retry_dropped = 0
         self._last_restart_failed = float("-inf")  # not 0.0: time.monotonic() is small right after boot
+        self._proof_at = float("-inf")  # when the sidecar last proved it knows the token
+        self._impostor_warned = False
 
     # -- identity / availability ----------------------------------------------------------
 
@@ -556,9 +582,27 @@ class TsuzukiProvider(MemoryProvider):
 
     # -- sidecar process ------------------------------------------------------------------
 
+    def _verified(self) -> bool:
+        """Whether the program on the port is this profile's sidecar: it proved it knows the token, at most
+        PROOF_INTERVAL_S ago and not before a failed connection. The token is never sent before that."""
+        if not self._token or time.monotonic() - self._proof_at < PROOF_INTERVAL_S:
+            return True
+        ok = _proves_token(self._base_url, self._token, HEALTH_TIMEOUT_S)
+        if ok:
+            self._proof_at = time.monotonic()
+            self._impostor_warned = False
+            return True
+        if ok is False and not self._impostor_warned:
+            logger.warning("tsuzuki: another program answers on %s and does not know this memory's token; "
+                           "nothing is sent to it (set a different port in %s)", self._base_url, self._config_path)
+            self._impostor_warned = True
+        return False
+
     def _healthy(self) -> bool:
         """True only for a sidecar serving this profile's data dir (another profile's sidecar on the
         same port must not receive this profile's conversations)."""
+        if not self._verified():
+            return False
         try:
             health = _http_json(self._base_url, "GET", "/health", timeout=HEALTH_TIMEOUT_S, token=self._token)
         except SidecarError:
@@ -647,7 +691,14 @@ class TsuzukiProvider(MemoryProvider):
     # -- HTTP helpers ---------------------------------------------------------------------
 
     def _post(self, path: str, payload: dict[str, Any], timeout: float) -> dict[str, Any]:
-        return _http_json(self._base_url, "POST", path, payload, timeout=timeout, token=self._token)
+        if not self._verified():
+            raise SidecarError(f"POST {path}: no verified sidecar at {self._base_url}", unreachable=True)
+        try:
+            return _http_json(self._base_url, "POST", path, payload, timeout=timeout, token=self._token)
+        except SidecarError as exc:
+            if exc.unreachable:
+                self._proof_at = float("-inf")  # whatever answers next must prove itself again
+            raise
 
     def _note_failure(self, what: str, exc: BaseException) -> None:
         # One warning per outage; repeats go to debug so a stopped sidecar does not flood the log.
@@ -674,6 +725,8 @@ class TsuzukiProvider(MemoryProvider):
         """Wait (bounded) for the sidecar's first embedding check and warn once when the model is unreachable."""
         deadline = time.monotonic() + EMBEDDING_CHECK_S
         while not self._closed and time.monotonic() < deadline:
+            if not self._verified():
+                return
             try:
                 health = _http_json(self._base_url, "GET", "/health", timeout=HEALTH_TIMEOUT_S, token=self._token)
             except SidecarError:

@@ -1,5 +1,5 @@
 name: tsuzuki
-version: 0.1.0
+version: 0.2.0
 description: "Local long-term memory through the tsuzuki sidecar (EmbeddingGemma, HTTP on 127.0.0.1)."
 kind: exclusive
 hooks:

@@ -6,7 +6,7 @@ import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { start, defaults } from '../lib/server.js'
-import { conversationId, textOf, withRecall } from '../lib/proxy.js'
+import { contentKey, messageId, textOf, withRecall } from '../lib/proxy.js'
 
 function vector(text) {
   const v = new Array(64).fill(0)
@@ -92,10 +92,10 @@ async function indexed(health) {
 test('proxy: helpers', () => {
   assert.equal(textOf([{ type: 'text', text: 'a' }, { type: 'image_url', image_url: { url: 'x' } }, { type: 'text', text: 'b' }]), 'a\nb')
   assert.equal(textOf(null), '')
-  const a = conversationId([{ role: 'system', content: 'S' }, { role: 'user', content: 'hi there' }])
-  assert.equal(a, conversationId([{ role: 'system', content: 'S' }, { role: 'user', content: 'hi there' },
-    { role: 'assistant', content: 'hello' }, { role: 'user', content: 'more' }]), 'later messages do not change the id')
-  assert.notEqual(a, conversationId([{ role: 'user', content: 'hi there' }]))
+  assert.equal(contentKey('user', ' hi there '), contentKey('user', 'hi there'))
+  assert.notEqual(contentKey('user', 'hi'), contentKey('assistant', 'hi'))
+  const id = messageId(contentKey('user', 'hi'), 'chat-0123456789abcdef', 1)
+  assert.ok(id.startsWith(`px-${contentKey('user', 'hi')}-`) && id.endsWith('-1'))
   const parts = withRecall([{ role: 'user', content: [{ type: 'text', text: 'q' }] }], '<memory>m</memory>')
   assert.deepEqual(parts[0].content, [{ type: 'text', text: '<memory>m</memory>' }, { type: 'text', text: 'q' }])
   assert.equal(withRecall([{ role: 'user', content: 'q' }], 'M')[0].content, 'M\n\nq')
@@ -172,6 +172,37 @@ test('proxy: pass-through, opt-out, app tasks, token and browser refusals, upstr
     assert.match((await down.json()).error.message, /did not answer/)
   } finally {
     await t.close().catch(() => {})
+  }
+})
+
+test('proxy: two chats that open alike stay apart and recall each other; changing system prompts and trimmed history store nothing twice', async () => {
+  const t = await setup()
+  const ask = async messages => (await (await t.chat({ messages })).json()).choices[0].message.content
+  const sessions = async () => (await fetch(`http://127.0.0.1:${t.s.port}/v1/memory/sessions`, { method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: 'Bearer tok' }, body: '{}' }).then(r => r.json())).sessions
+  try {
+    const a1 = await ask([{ role: 'user', content: 'Hello!' }])
+    await ask([{ role: 'user', content: 'Hello!' }, { role: 'assistant', content: a1 }, { role: 'user', content: 'My bike is a red Bianchi.' }])
+    const b1 = await ask([{ role: 'user', content: 'Hello!' }])
+    assert.equal((await sessions()).length, 2, 'the second "Hello!" chat is a conversation of its own')
+    await indexed(t.health)
+    await ask([{ role: 'user', content: 'Hello!' }, { role: 'assistant', content: b1 }, { role: 'user', content: 'What bike do I ride, a Bianchi?' }])
+    assert.match(textOf(t.model.seen.at(-1).body.messages.at(-1).content), /<memory>[\s\S]*red Bianchi[\s\S]*<\/memory>/,
+      'chat B recalls chat A, though both opened with the same message')
+    assert.equal((await sessions()).length, 2)
+
+    // An app that puts the time into the system prompt and drops old messages.
+    const system = n => ({ role: 'system', content: `You are helpful. Now: 2026-10-27 10:0${n}` })
+    const c1 = await ask([system(0), { role: 'user', content: 'I am planning a trip to Hakodate.' }])
+    const c2 = await ask([system(1), { role: 'user', content: 'I am planning a trip to Hakodate.' }, { role: 'assistant', content: c1 },
+      { role: 'user', content: 'We go in June.' }])
+    await ask([system(2), { role: 'assistant', content: c2 }, { role: 'user', content: 'Book a hotel near the station.' }])
+    await indexed(t.health)
+    const all = await sessions()
+    assert.equal(all.length, 3, 'the changing system prompt and the trimmed history kept one conversation')
+    assert.equal(all[0].messages, 6, 'and stored each message once')
+  } finally {
+    await t.close()
   }
 })
 

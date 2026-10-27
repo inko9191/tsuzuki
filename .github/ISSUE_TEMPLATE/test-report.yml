@@ -1,0 +1,37 @@
+name: Test report / 動作報告
+description: How the setup went on your machine — it worked, or where it stopped. / あなたのマシンでのセットアップの結果（動いた、またはどこで止まったか）。
+title: "Test report: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for trying tsuzuki! Run this in the tsuzuki folder and paste everything between the `8<` lines below.
+        試してくれてありがとうございます！ tsuzuki のフォルダでこれを実行し、`8<` の行のあいだを全部下に貼ってください。
+
+        ```bash
+        node scripts/setup.mjs --report --quick
+        ```
+
+        Already cloned an older version? Run `git pull` first. / 前の版をクローン済みなら、先に `git pull` を。
+  - type: textarea
+    id: report
+    attributes:
+      label: Report / 報告
+      description: The output of --report (it has no user name or home folder in it). / --report の出力（ユーザー名やホームフォルダは入っていません）
+      render: markdown
+    validations:
+      required: true
+  - type: dropdown
+    id: result
+    attributes:
+      label: Result / 結果
+      options:
+        - It worked / 動いた
+        - It stopped with an error / エラーで止まった
+        - It worked, but something was confusing / 動いたが、分かりにくいところがあった
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything confusing or slow? (optional) / 分かりにくかったところ、遅かったところ（任意）

@@ -7,9 +7,9 @@
  *
  * Prints one JSON line `{"event":"ready","port":N}` when listening. See README "Sidecar API".
  */
-import { chmodSync, closeSync, mkdirSync, openSync, readFileSync, writeFileSync, existsSync, realpathSync } from 'node:fs'
+import { chmodSync, closeSync, mkdirSync, openSync, readFileSync, writeFileSync, writeSync, existsSync, realpathSync } from 'node:fs'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import { spawn } from 'node:child_process'
 import { homedir } from 'node:os'
 import { dirname, join, sep } from 'node:path'
@@ -20,7 +20,7 @@ import { EmbeddingTimeoutError, EmbeddingUnavailableError, Memory, describe, for
 import { MemoryStore, type StoredTurn } from './store.ts'
 import { proxyHandler } from './proxy.ts'
 
-export const VERSION = '0.1.0'
+export const VERSION = '0.2.0'
 
 export interface SidecarConfig {
   host: string
@@ -104,6 +104,11 @@ export function loadConfig(path: string): SidecarConfig {
 
 function log(level: string, message: string): void {
   process.stderr.write(`${new Date().toISOString()} ${level} ${message}\n`)
+}
+
+/** A stored message's text without the `role: ` prefix it is stored with. */
+function withoutRole(text: string): string {
+  return text.replace(/^(user|assistant|tool|system): /, '')
 }
 
 /** A request the client got wrong (answered 400, not 500). */
@@ -342,6 +347,29 @@ function sameSecret(given: string, expected: string): boolean {
   return timingSafeEqual(digest(given), digest(expected))
 }
 
+/**
+ * The answer to `GET /health?nonce=<n>` asked without the token: proof that this server knows the token, without
+ * revealing it. Clients ask this before they send the token, so a program that took the port while the memory was
+ * down never receives it (and `--stop` never kills a stranger's process).
+ */
+export function healthProof(token: string, nonce: string): string {
+  return createHmac('sha256', token).update(`tsuzuki-health:${nonce}`).digest('hex')
+}
+
+/** Whether `proof` is this token's answer to `nonce`. */
+export function provesToken(proof: unknown, token: string, nonce: string): boolean {
+  return typeof proof === 'string' && /^[0-9a-f]{64}$/.test(proof) && timingSafeEqual(Buffer.from(proof), Buffer.from(healthProof(token, nonce)))
+}
+
+const NONCE = /^[0-9A-Za-z_-]{16,128}$/
+/** A nonce-only health request, which is answered without the token (with the proof only). */
+function proofRequest(req: IncomingMessage): string | null {
+  if (req.method !== 'GET') return null
+  const url = new URL(req.url ?? '/', 'http://localhost')
+  const nonce = url.searchParams.get('nonce') ?? ''
+  return url.pathname === '/health' && NONCE.test(nonce) ? nonce : null
+}
+
 export function refusal(req: IncomingMessage, config: Pick<SidecarConfig, 'host' | 'token'>, port: number,
   hostNames: readonly string[] = []): [number, string] | null {
   if (req.headers.origin !== undefined) return [403, 'browser requests are not accepted']
@@ -349,7 +377,9 @@ export function refusal(req: IncomingMessage, config: Pick<SidecarConfig, 'host'
     const allowed = new Set([`127.0.0.1:${port}`, `localhost:${port}`, `[::1]:${port}`, ...hostNames.map(h => `${h}:${port}`)])
     if (!allowed.has(String(req.headers.host ?? '').toLowerCase())) return [403, 'unexpected Host header']
   }
-  if (config.token && !sameSecret(String(req.headers.authorization ?? ''), `Bearer ${config.token}`)) return [401, 'missing or wrong token']
+  if (config.token && !sameSecret(String(req.headers.authorization ?? ''), `Bearer ${config.token}`) && !proofRequest(req)) {
+    return [401, 'missing or wrong token']
+  }
   if (req.method === 'POST' && !/^application\/json\b/i.test(String(req.headers['content-type'] ?? ''))) {
     return [415, 'Content-Type must be application/json']
   }
@@ -481,6 +511,10 @@ export async function start(config: SidecarConfig): Promise<{ close(): Promise<v
         return send(res, refused[0], { error: refused[1] })
       }
       const url = new URL(req.url ?? '/', 'http://localhost')
+      const nonce = proofRequest(req)
+      if (nonce && config.token && !sameSecret(String(req.headers.authorization ?? ''), `Bearer ${config.token}`)) {
+        return send(res, 200, { proof: healthProof(config.token, nonce) })
+      }
       if (req.method === 'GET' && url.pathname === '/health') {
         // `status` is about this process; whether memory works is in `embedding` / `chat` (ok, lastError) and `unindexed`.
         const state = memory.status()
@@ -532,6 +566,15 @@ export async function start(config: SidecarConfig): Promise<{ close(): Promise<v
           throw error
         }
       }
+      if (url.pathname === '/v1/memory/sessions') {
+        const limit = typeof b.limit === 'number' && b.limit > 0 ? Math.floor(b.limit) : -1
+        return send(res, 200, { sessions: store.sessions(limit).map(s => ({ ...s, preview: withoutRole(s.preview).slice(0, 160) })) })
+      }
+      if (url.pathname === '/v1/memory/session') {
+        if (typeof b.session !== 'string' || !b.session) return send(res, 400, { error: 'session is required' })
+        return send(res, 200, { session: b.session, messages: store.sessionTurns(b.session).map(t =>
+          ({ id: t.id, role: t.role, text: withoutRole(t.text), at: t.at, date: t.date })) })
+      }
       if (url.pathname === '/v1/memory/flush') {
         if (b.session) memory.maybeCloseSegment(String(b.session), true)
         else memory.closeAll()
@@ -558,7 +601,7 @@ export async function start(config: SidecarConfig): Promise<{ close(): Promise<v
   })
   let proxyPort = 0
   const proxy = config.proxy.enabled ? (() => {
-    const handle = proxyHandler({ memory, upstream: config.proxy.upstream, apiKey: config.proxy.apiKey,
+    const handle = proxyHandler({ memory, store, upstream: config.proxy.upstream, apiKey: config.proxy.apiKey,
       budgetTokens: config.recall.budgetTokens, log,
       queue: <T>(work: () => T) => {
         const done = chain.then(work)
@@ -624,6 +667,19 @@ export function defaultConfigPath(): string {
 
 /** Command-line entry (also used by the `tsuzuki-memory` bin). */
 export async function main(): Promise<void> {
+  // `--log FILE`: everything the server prints goes to FILE (a login item has no terminal to print to).
+  const logAt = process.argv.indexOf('--log')
+  if (logAt >= 0 && process.argv[logAt + 1]) {
+    // Synchronous: a start that fails logs its reason and exits at once, and that line must reach the file.
+    const fd = openSync(process.argv[logAt + 1]!, 'a', 0o600)
+    process.stdout.write = process.stderr.write = ((chunk: string | Uint8Array, ...rest: unknown[]) => {
+      if (typeof chunk === 'string') writeSync(fd, chunk)
+      else writeSync(fd, chunk)
+      const done = rest.find(r => typeof r === 'function') as (() => void) | undefined
+      done?.()
+      return true
+    }) as typeof process.stdout.write
+  }
   const at = process.argv.indexOf('--config')
   const path = at >= 0 ? process.argv[at + 1]! : defaultConfigPath()
   const config = loadConfig(path)

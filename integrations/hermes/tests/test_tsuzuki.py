@@ -18,6 +18,8 @@ import sys
 
 sys.dont_write_bytecode = True  # never drop __pycache__ into the Hermes checkout
 
+import hashlib
+import hmac
 import inspect
 import json
 import shutil
@@ -91,6 +93,8 @@ class FakeSidecar:
         self.recall_error: Optional[tuple[int, dict[str, Any]]] = None
         self.search_error: Optional[tuple[int, dict[str, Any]]] = None
         self.health_extra: dict[str, Any] = {}
+        # The token this fake sidecar knows: it answers /health?nonce= with the proof, as the real one does.
+        self.token = ""
         self.forget_reply: tuple[int, dict[str, Any]] = (
             200, {"turns": 2, "units": 3, "facts": 1, "segments": 1, "links": 0, "vacuumed": True})
         sidecar = self
@@ -109,7 +113,11 @@ class FakeSidecar:
 
             def do_GET(self) -> None:
                 sidecar._record("GET", self.path, None)
-                if self.path == "/health":
+                if self.path.startswith("/health?nonce=") and sidecar.token:
+                    nonce = self.path.split("=", 1)[1]
+                    self._reply({"proof": hmac.new(sidecar.token.encode(), f"tsuzuki-health:{nonce}".encode(),
+                                                   hashlib.sha256).hexdigest()})
+                elif self.path.split("?")[0] == "/health":
                     self._reply({"status": "ok", "version": "fake", "stats": {"messages": 0}, **sidecar.health_extra})
                 else:
                     self._reply({"error": "not found"}, 404)
@@ -168,12 +176,18 @@ FAKE_SPAWNED_SIDECAR = r'''
 import json, sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 config = json.load(open(sys.argv[sys.argv.index("--config") + 1]))
+def proof(path):
+    """The real sidecar's answer to /health?nonce=: the HMAC of the nonce with the config's token."""
+    import hashlib, hmac
+    nonce = path.split("nonce=", 1)[1] if "nonce=" in path else ""
+    return hmac.new(config.get("token", "").encode(), ("tsuzuki-health:" + nonce).encode(), hashlib.sha256).hexdigest()
 
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
     def do_GET(self):
-        body = json.dumps({"status": "ok", "version": "fake-spawned", "stats": {}}).encode()
+        answer = {"proof": proof(self.path)} if "nonce=" in self.path else {"status": "ok", "version": "fake-spawned", "stats": {}}
+        body = json.dumps(answer).encode()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
@@ -193,6 +207,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 path = sys.argv[sys.argv.index("--config") + 1]
 config = json.load(open(path))
 log = os.path.join(os.path.dirname(path), "posts.jsonl")
+def proof(path):
+    """The real sidecar's answer to /health?nonce=: the HMAC of the nonce with the config's token."""
+    import hashlib, hmac
+    nonce = path.split("nonce=", 1)[1] if "nonce=" in path else ""
+    return hmac.new(config.get("token", "").encode(), ("tsuzuki-health:" + nonce).encode(), hashlib.sha256).hexdigest()
 
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
@@ -205,6 +224,8 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
     def do_GET(self):
+        if "nonce=" in self.path:
+            return self._reply({"proof": proof(self.path)})
         self._reply({"status": "ok", "version": "fake-recording", "stats": {}, "pid": os.getpid()})
     def do_POST(self):
         payload = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
@@ -221,9 +242,12 @@ server.serve_forever()
 FAKE_SPAWNED_SIDECAR_JS = r'''
 const http = require("http");
 const fs = require("fs");
+const crypto = require("crypto");
 const config = JSON.parse(fs.readFileSync(process.argv[process.argv.indexOf("--config") + 1], "utf8"));
 const server = http.createServer((req, res) => {
   res.setHeader("Content-Type", "application/json");
+  const nonce = new URL(req.url, "http://x").searchParams.get("nonce");
+  if (nonce) return res.end(JSON.stringify({ proof: crypto.createHmac("sha256", config.token || "").update("tsuzuki-health:" + nonce).digest("hex") }));
   res.end(JSON.stringify({ status: "ok", version: "fake-node", stats: {} }));
 });
 server.listen(config.port, "127.0.0.1", () => {
@@ -294,6 +318,8 @@ class SidecarTestCase(unittest.TestCase):
         config["port"] = port
         path = data_dir / "config.json"
         path.write_text(json.dumps(config))
+        if getattr(self, "sidecar", None) is not None and port == self.sidecar.port:
+            self.sidecar.token = config.get("token", "")  # the fake proves it knows the token, as the real sidecar does
         return path
 
     def make(self, session_id: str = "s1", **kwargs: Any) -> em.TsuzukiProvider:
@@ -421,7 +447,10 @@ class InitializeTests(SidecarTestCase):
         provider = self.make(agent_context="primary", user_id="u1", cwd="/tmp")
         self.assertIsNone(provider.spawned_pid)
         self.assertFalse(provider.read_only)
-        self.assertEqual(self.sidecar.requests[0][:2], ("GET", "/health"))
+        # First the proof that this sidecar knows the token (asked without it), then the health with the token.
+        self.assertEqual(self.sidecar.requests[0][0], "GET")
+        self.assertRegex(self.sidecar.requests[0][1], r"^/health\?nonce=[0-9a-f]{32}$")
+        self.assertEqual(self.sidecar.requests[1][:2], ("GET", "/health"))
         self.assertIn("<memory-context>", provider.system_prompt_block())
         self.assertIn("tsuzuki_search", provider.system_prompt_block())
 
@@ -739,6 +768,7 @@ class SyncTurnTests(SidecarTestCase):
         provider.sync_turn("second while down", "a2", session_id="s1")
         self.assertTrue(_wait_until(lambda: len(provider._retry) == 2))
         back = FakeSidecar(port)
+        back.token = self.sidecar.token  # the same memory, back: it knows the token
         self.addCleanup(back.close)
         provider.sync_turn("after it is back", "a3", session_id="s1")
         provider.shutdown()
@@ -786,11 +816,28 @@ class ForgetSettingTests(SidecarTestCase):
     def test_the_sidecar_token_is_sent(self) -> None:
         provider = self.make()
         provider._token = "t0ken"
+        self.sidecar.token = "t0ken"
         seen = []
         real = em._http_json
         with mock.patch.object(em, "_http_json", lambda *a, **k: (seen.append(k.get("token")), real(*a, **{**k, "token": ""}))[1]):
             provider._post("/v1/memory/flush", {}, 5.0)
         self.assertEqual(seen, ["t0ken"])
+
+
+    def test_a_program_that_took_the_port_never_gets_the_token(self) -> None:
+        """A program on the port that cannot prove it knows the token gets no request with it, and no conversation."""
+        provider = self.make()
+        provider._token = "t0ken"
+        provider._proof_at = float("-inf")
+        self.sidecar.token = "something-else"
+        seen = []
+        real = em._http_json
+        with mock.patch.object(em, "_http_json", lambda *a, **k: (seen.append(k.get("token")), real(*a, **k))[1]):
+            with self.assertRaises(em.SidecarError):
+                provider._post("/v1/memory/messages", {"session": "s1", "messages": []}, 5.0)
+            self.assertFalse(provider._healthy())
+        self.assertEqual(seen, [])
+        self.assertEqual(self.sidecar.calls("/v1/memory/messages"), [])
 
 
 class ReadOnlyTests(SidecarTestCase):
