@@ -4,7 +4,7 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { arch, cpus, homedir, platform, release, totalmem, userInfo, version as osVersion } from 'node:os'
-import { delimiter, join } from 'node:path'
+import { delimiter, join, posix, win32 } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 export const REPO_URL = 'https://github.com/inko9191/tsuzuki'
@@ -46,8 +46,9 @@ export const LAUNCH_LABEL = 'io.github.inko9191.tsuzuki'
  */
 export function autostartPlan({ os = platform(), node, serverJs, config, log, home = homedir(), appData = process.env.APPDATA, uid = process.getuid?.() }) {
   const args = [node, serverJs, '--config', config, '--log', log]
+  // The target OS's own path rules (the plan is also built, and tested, on another OS).
   if (os === 'darwin') {
-    const path = join(home, 'Library', 'LaunchAgents', `${LAUNCH_LABEL}.plist`)
+    const path = posix.join(home, 'Library', 'LaunchAgents', `${LAUNCH_LABEL}.plist`)
     const content = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -69,7 +70,7 @@ ${args.map(a => `    <string>${xml(a)}</string>`).join('\n')}
       off: [['launchctl', ['bootout', `${domain}/${LAUNCH_LABEL}`], true]] }
   }
   if (os === 'win32') {
-    const path = join(appData ?? join(home, 'AppData', 'Roaming'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', 'tsuzuki.vbs')
+    const path = win32.join(appData ?? win32.join(home, 'AppData', 'Roaming'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup', 'tsuzuki.vbs')
     const line = args.map(a => `"${a}"`).join(' ')
     const content = `' Starts the tsuzuki memory server at login, without a window (written by scripts/setup.mjs --autostart).\r\n`
       + `CreateObject("WScript.Shell").Run ${vbs(line)}, 0, False\r\n`
@@ -77,7 +78,7 @@ ${args.map(a => `    <string>${xml(a)}</string>`).join('\n')}
     // non-ASCII folder names (C:\Users\<Japanese name>).
     return { kind: 'startup', path, content, encoding: 'utf16le', on: [['wscript.exe', [path]]], off: [] }
   }
-  const path = join(home, '.config', 'systemd', 'user', 'tsuzuki.service')
+  const path = posix.join(home, '.config', 'systemd', 'user', 'tsuzuki.service')
   const content = `[Unit]
 Description=tsuzuki memory server
 After=network.target
