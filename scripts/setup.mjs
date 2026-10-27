@@ -202,7 +202,7 @@ function llamaServer() {
     throw new SetupError(T.llamaBad(binary, help.error ? help.error.message : `exit ${help.status}`, text.slice(0, 1500)))
   }
   const v = spawnSync(binary, ['--version'], { encoding: 'utf8', timeout: 30000 })
-  report.llama = `${v.stdout ?? ''}${v.stderr ?? ''}`.split('\n').filter(l => /version|built with/i.test(l)).join(' · ').trim()
+  report.llama = `${v.stdout ?? ''}${v.stderr ?? ''}`.split(/\r?\n/).filter(l => /version|built with/i.test(l)).map(l => l.trim()).join(' · ')
   const devices = spawnSync(binary, ['--list-devices'], { encoding: 'utf8', timeout: 30000 })
   report.devices = listDevices(`${devices.stdout ?? ''}${devices.stderr ?? ''}`)
   say(`  ${binary}`)

@@ -214,7 +214,7 @@ export function labeled(label, text, { indent = 4, width = 78 } = {}) {
 
 /** The report to paste into an issue (Markdown). */
 export function formatReport(r) {
-  const row = (k, v) => `| ${k} | ${String(v ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ')} |`
+  const row = (k, v) => `| ${k} | ${String(v ?? '').replace(/\|/g, '\\|').replace(/\s*[\r\n]+\s*/g, ' ')} |`
   const out = ['### tsuzuki test report', '', '| | |', '|---|---|',
     row('tsuzuki', r.version), row('OS', r.machine.os), row('CPU', r.machine.cpu), row('Memory', r.machine.memory),
     row('GPU', r.machine.gpu), row('Node.js', r.machine.node), row('llama.cpp', r.llama || 'not found'),

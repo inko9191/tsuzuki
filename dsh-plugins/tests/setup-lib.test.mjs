@@ -83,7 +83,7 @@ test('report: home folder and user name taken out, table cells escaped, failures
   assert.doesNotMatch(ja, /平方|%E5%B9%B3/i)
   assert.match(ja, /^~\/a .*\/b <user>さん$/)
   assert.equal(sanitize('/srv/al/x and also al', '/home/al', 'al'), '/srv/<user>/x and also al')
-  const text = formatReport({ version: '0.2.0 (abc1234)', llama: 'version: 6912 | built with clang', setup: '--for app, quick',
+  const text = formatReport({ version: '0.2.0 (abc1234)', llama: 'version: 6912\r\n | built with clang', setup: '--for app, quick',
     machine: { os: 'Ubuntu 24.04', cpu: 'Ryzen (16 threads)', memory: '32 GB', gpu: 'RTX 3060', node: 'v22.19.0' },
     steps: [{ what: 'memory server started', ok: true, seconds: 0.84 }, { what: 'facts', ok: false }], devices: ['using device CUDA0'],
     error: 'fact extraction did not work within 300 s.\nlog tail' })
