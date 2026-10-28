@@ -36,9 +36,11 @@ case "$engine" in *"'"*) echo "the repository path contains a quote, which this 
 stamp="$(date +%Y%m%d-%H%M%S)"
 cp "$profile/cordis.patch.yml" "$profile/cordis.patch.yml.bak-memory-$stamp"
 cp "$profile/package.json" "$profile/package.json.bak-memory-$stamp"
-provider="$plugins/dist/dsh-text-embeddings-tsuzuki-0.1.0.tgz"
-[ "$backend" != engine ] && provider="$plugins/dist/dsh-text-embeddings-openai-0.1.0.tgz"
-"$dsh" plugin --profile desktop add "$plugins/dist/dsh-text-embeddings-0.1.0.tgz" "$provider" "$plugins/dist/dsh-tsuzuki-0.1.0.tgz"
+# The file pnpm packed for packages/<dir>: dist/dsh-<dir>-<its package.json version>.tgz
+tgz() { echo "$plugins/dist/dsh-$1-$(node -p 'require(process.argv[1]).version' "$plugins/packages/$1/package.json").tgz"; }
+provider=text-embeddings-tsuzuki
+[ "$backend" != engine ] && provider=text-embeddings-openai
+"$dsh" plugin --profile desktop add "$(tgz text-embeddings)" "$(tgz $provider)" "$(tgz tsuzuki)"
 
 if [ "$backend" != engine ]; then
   embedding_row="- id: text-embeddings-openai
@@ -71,4 +73,4 @@ $embedding_row
       baseUrl: http://127.0.0.1:8080/v1
 YAML
 echo "Installed. Start DeepSeek Harness; memory data goes to ~/.dsh/tsuzuki."
-echo "Undo: restore $profile/cordis.patch.yml.bak-memory-$stamp and package.json.bak-memory-$stamp, then '$dsh plugin --profile desktop remove dsh-tsuzuki dsh-text-embeddings $(basename "$provider" -0.1.0.tgz)'."
+echo "Undo: restore $profile/cordis.patch.yml.bak-memory-$stamp and package.json.bak-memory-$stamp, then '$dsh plugin --profile desktop remove dsh-tsuzuki dsh-text-embeddings dsh-$provider'."

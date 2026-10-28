@@ -12,15 +12,15 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import { spawn } from 'node:child_process'
 import { homedir } from 'node:os'
-import { dirname, join, sep } from 'node:path'
+import { basename, dirname, join, sep } from 'node:path'
 import { HttpEmbedder, EMBEDDINGGEMMA_PREFIXES, InputTooLongError, ensureOllamaModel, MODEL_NOTICES, ollamaModels } from './embedding-http.ts'
 import { recallText } from './format.ts'
 import { ChatUnavailableError, OpenAIChat, LLAMA_CPP_EXTRA } from './llm.ts'
-import { EmbeddingTimeoutError, EmbeddingUnavailableError, Memory, describe, forgetScope, within, type ChatModel } from './memory.ts'
+import { EmbeddingTimeoutError, EmbeddingUnavailableError, Memory, defaultMinSimilarity, describe, forgetScope, recallNote, within, type ChatModel } from './memory.ts'
 import { MemoryStore, type StoredTurn } from './store.ts'
 import { proxyHandler } from './proxy.ts'
 
-export const VERSION = '0.2.0'
+export const VERSION = '0.2.1'
 
 export interface SidecarConfig {
   host: string
@@ -39,7 +39,11 @@ export interface SidecarConfig {
   chat: { baseUrl: string, model: string, apiKey: string, server: 'llama.cpp' | 'openai', timeoutMs: number, rerankTimeoutMs: number,
     /** Start llama.cpp's llama-server with this chat model (GGUF) on demand instead of using `baseUrl`. */
     llamacpp?: LlamaSpec }
-  recall: { budgetTokens: number }
+  /**
+   * Automatic recall (`/v1/memory/recall`, the proxy): nothing when no stored message is at least `minSimilarity` alike
+   * (0: off). Unset: 0.31 with EmbeddingGemma 300m, the model it was measured with, and off with any other model.
+   */
+  recall: { budgetTokens: number, minSimilarity?: number }
   search: { budgetTokens: number, rerank: boolean }
   facts: { segmentTokens: number, segmentIdleMinutes: number, intervalSeconds: number, updateLinks: boolean }
   capture: { redactSecrets: boolean }
@@ -48,7 +52,9 @@ export interface SidecarConfig {
    * and get memory without a plugin. Same token as the sidecar. `upstream` must be on this machine unless
    * `allowRemoteUpstream` (recalled memory would otherwise leave it).
    */
-  proxy: { enabled: boolean, port: number, upstream: string, apiKey: string, allowRemoteUpstream: boolean }
+  proxy: { enabled: boolean, port: number, upstream: string, apiKey: string, allowRemoteUpstream: boolean,
+    /** Minutes a proxied chat stays quiet before its facts are made (chat APIs never say that a chat ended). */
+    segmentIdleMinutes: number }
 }
 
 /** A llama-server the sidecar starts when it needs it and leaves running (other hosts may share it). */
@@ -80,7 +86,8 @@ export function defaults(dataDir: string): SidecarConfig {
     search: { budgetTokens: 2048, rerank: false },
     facts: { segmentTokens: 2500, segmentIdleMinutes: 30, intervalSeconds: 60, updateLinks: true },
     capture: { redactSecrets: true },
-    proxy: { enabled: false, port: 8293, upstream: 'http://127.0.0.1:8080/v1', apiKey: '', allowRemoteUpstream: false },
+    proxy: { enabled: false, port: 8293, upstream: 'http://127.0.0.1:8080/v1', apiKey: '', allowRemoteUpstream: false,
+      segmentIdleMinutes: 5 },
   }
 }
 
@@ -438,6 +445,17 @@ export async function start(config: SidecarConfig): Promise<{ close(): Promise<v
     queryTimeoutMs: config.embedding.queryTimeoutMs, rerankTimeoutMs: config.chat.rerankTimeoutMs,
     onEmbeddingRecovered: () => { ready = backfill() },
   })
+  // The default gate fits EmbeddingGemma 300m with its own prompts, as measured; another model's cosines lie elsewhere.
+  const embeddingName = config.embedding.engine?.modelName
+    ?? (config.embedding.llamacpp ? basename(config.embedding.llamacpp.model) : config.embedding.model)
+  const ownPrompts = config.embedding.queryPrefix === EMBEDDINGGEMMA_PREFIXES.queryPrefix
+    && config.embedding.documentPrefix === EMBEDDINGGEMMA_PREFIXES.documentPrefix
+  const minSimilarity = typeof config.recall.minSimilarity === 'number' ? config.recall.minSimilarity
+    : ownPrompts ? defaultMinSimilarity(embeddingName) : 0
+  if (typeof config.recall.minSimilarity !== 'number' && !minSimilarity) {
+    log('info', `automatic recall is not gated: the default recall.minSimilarity (0.31) was measured with EmbeddingGemma `
+      + `300m and its prompts, not ${embeddingName}; set recall.minSimilarity to gate it`)
+  }
 
   // Ollama only: pull the model when it is missing (EmbeddingGemma 300m only after the user accepted its terms). The
   // license notice is shown only when the endpoint is an Ollama server that lacks the model.
@@ -556,8 +574,10 @@ export async function start(config: SidecarConfig): Promise<{ close(): Promise<v
             rerank: search ? (typeof b.rerank === 'boolean' ? b.rerank : config.search.rerank) : false,
             excludeSessions: !search && b.session ? [String(b.session)] : [],
             budgetTokens: typeof b.budget_tokens === 'number' ? b.budget_tokens : (search ? config.search : config.recall).budgetTokens,
+            minSimilarity: search ? 0 : minSimilarity,
             signal: gone.signal,
           })
+          if (!search) log('info', `recall: ${recallNote(found, minSimilarity)}`)
           return send(res, 200, { text: found.text ? recallText(found.text) : '', ids: found.ids, reranked: found.reranked })
         } catch (error) {
           // The query could not be embedded: say so (503 and the cause), so a client can tell this from "no memories".
@@ -602,7 +622,7 @@ export async function start(config: SidecarConfig): Promise<{ close(): Promise<v
   let proxyPort = 0
   const proxy = config.proxy.enabled ? (() => {
     const handle = proxyHandler({ memory, store, upstream: config.proxy.upstream, apiKey: config.proxy.apiKey,
-      budgetTokens: config.recall.budgetTokens, log,
+      budgetTokens: config.recall.budgetTokens, minSimilarity, segmentIdleMinutes: config.proxy.segmentIdleMinutes, log,
       queue: <T>(work: () => T) => {
         const done = chain.then(work)
         chain = done.then(() => {}, e => log('warn', `capture: ${describe(e)}`))
@@ -667,6 +687,9 @@ export function defaultConfigPath(): string {
 
 /** Command-line entry (also used by the `tsuzuki-memory` bin). */
 export async function main(): Promise<void> {
+  // Node calls its built-in SQLite experimental and says so at every start, which means nothing to someone reading the log.
+  process.removeAllListeners('warning')
+  process.on('warning', w => { if (w.name !== 'ExperimentalWarning') process.stderr.write(`${w.name}: ${w.message}\n`) })
   // `--log FILE`: everything the server prints goes to FILE (a login item has no terminal to print to).
   const logAt = process.argv.indexOf('--log')
   if (logAt >= 0 && process.argv[logAt + 1]) {

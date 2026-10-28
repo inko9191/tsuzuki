@@ -1,0 +1,100 @@
+{
+  "note": "exploratory, after the preregistered report; not used for its verdicts",
+  "repeated_probes": {
+    "en": 0,
+    "ja": 35
+  },
+  "without_repeated_probes": {
+    "probes": 477,
+    "misfire": {
+      "N": 0.0,
+      "P": 0.10062893081761007,
+      "H": 0.05870020964360587,
+      "G": 0.07547169811320754
+    },
+    "misfire_ja": {
+      "N": 0.0,
+      "P": 0.12217194570135746,
+      "H": 0.06787330316742081,
+      "G": 0.12217194570135746
+    },
+    "P-N misfire": {
+      "difference": 0.10062893081761007,
+      "ci95": [
+        0.07453416149068323,
+        0.1282065217391304
+      ]
+    },
+    "H-P misfire": {
+      "difference": -0.041928721174004195,
+      "ci95": [
+        -0.06751411673401664,
+        -0.016597510373443983
+      ]
+    },
+    "G-P misfire": {
+      "difference": -0.025157232704402517,
+      "ci95": [
+        -0.037894736842105266,
+        -0.01284727941580191
+      ]
+    }
+  },
+  "second_judge_without_repeated_probes": {
+    "items": 112,
+    "agreement": 0.9017857142857143,
+    "kappa": 0.5164835164835163,
+    "claude_yes_qwen_no": 11,
+    "claude_no_qwen_yes": 0
+  },
+  "second_judge_repeated_probes_only": {
+    "items": 8,
+    "agreement": 0.375,
+    "kappa": 0.0,
+    "claude_yes_qwen_no": 5,
+    "claude_no_qwen_yes": 0
+  },
+  "memory_refusals": {
+    "N": {
+      "probes_en": 0,
+      "probes_ja": 0,
+      "questions": 0,
+      "probes_refused_and_misfire_by_qwen": 0
+    },
+    "P": {
+      "probes_en": 32,
+      "probes_ja": 0,
+      "questions": 1,
+      "probes_refused_and_misfire_by_qwen": 3
+    },
+    "H": {
+      "probes_en": 28,
+      "probes_ja": 1,
+      "questions": 2,
+      "probes_refused_and_misfire_by_qwen": 1
+    }
+  },
+  "questions_H_vs_P": {
+    "P_right_H_wrong": [
+      "en-gpt4_1e4a8aeb-q",
+      "ja-j11-q",
+      "ja-j22-q",
+      "ja-j33-q"
+    ],
+    "H_right_P_wrong": [
+      "ja-j18-q"
+    ]
+  },
+  "questions_G_vs_P": {
+    "P_right_G_wrong": [
+      "ja-j03-q",
+      "ja-j04-q"
+    ],
+    "G_right_P_wrong": []
+  },
+  "answers_cut_test": {
+    "N": 468,
+    "P": 378,
+    "H": 351
+  }
+}

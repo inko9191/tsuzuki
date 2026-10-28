@@ -31,6 +31,16 @@ message.
    ```
 
    The system prompt only gets a static guide, so the prefix cache is not invalidated each turn.
+
+   Nothing is recalled when no window or fact of another session has a cosine of at least `recall.minSimilarity` with
+   the message (0.31 with EmbeddingGemma 300m; see below for other models). In M2 (pre-registered; 136 new users,
+   Gemma 4 E2B answering, `docs/MEMORY_MISFIRE_M2_RESULTS.md`), among replies to messages that need no memory, this
+   gate cut refusals ("it is not in my memory") from 8.3% to 1.8%, and all harmful replies (refusals, or unrelated
+   excerpts brought in) from 14.9% to 6.4%; accuracy on questions that need memory went from 52.2% to 51.5% (−0.7
+   points, 95% CI −2.2 to 0.0). 0.31 was set for EmbeddingGemma 300m in quick mode (no facts), so it is the default
+   only with that model at 768 dimensions; with another embedding model (EmbeddingGemma 2 included) the gate is off
+   unless you set a value of your own. The sidecar logs one line per automatic recall: how many messages it added and
+   how alike the closest one was.
 5. **Tools.** `memory_search` searches all sessions (including the current one). It can rerank with the chat model (`tool.rerank`), off by default.
    `memory_forget` deletes memory (below; off unless `tool.forget: true`).
 
@@ -87,8 +97,9 @@ create it from a template first:
 ```sh
 dsh --profile <name> --from-default-profile headless --dump-config > /dev/null   # only for a new name; or web, acp, sdk
 dist="$PWD/dsh-plugins/dist"                                                 # from the repository root
+v=$(node -p "require('./dsh-plugins/packages/tsuzuki/package.json').version")
 dsh plugin --profile <name> add "$dist/dsh-text-embeddings-0.1.0.tgz" "$dist/dsh-text-embeddings-tsuzuki-0.1.0.tgz" \
-  "$dist/dsh-tsuzuki-0.1.0.tgz"
+  "$dist/dsh-tsuzuki-$v.tgz"
 ```
 
 Use `dsh-text-embeddings-openai-0.1.0.tgz` instead of the engine provider (`dsh-text-embeddings-tsuzuki`) for Ollama. pnpm then reports "Issues with
@@ -115,6 +126,7 @@ The row is enabled by the bundle. If the profile has another memory plugin, disa
 | `recall.budgetTokens` | `2048` | Excerpt budget (U2 arm P) |
 | `recall.rerank` | `false` | Rerank automatic recall with the chat model |
 | `recall.timeoutMs` | `4000` | Skip recall for the turn when retrieval is slower (its requests are aborted) |
+| `recall.minSimilarity` | unset | Recall nothing when no message of another session is at least this alike (cosine; M2). Unset: `0.31` with EmbeddingGemma 300m, off with any other model; `0` turns the gate off. `memory_search` is not gated |
 | `embedding.queryTimeoutMs` | `3000` | Limit of one query embedding (recall, `memory_search`); storing uses the provider's own limit. After a timeout, queries fail at once for 30 s or until the model answers again |
 | `llm.rerankTimeoutMs` | `15000` | Limit of one rerank; then the dense order is used. A chat server that does not answer `GET /models` within 1.5 s is not asked |
 | `tool.enabled` / `rerank` / `budgetTokens` | `true` / `false` / `1024` | `memory_search` |
@@ -192,8 +204,8 @@ JSON API:
 |---|---|---|
 | `GET /health` | | `{status, version, dataDir, stats, embedding, chat}`: `status` is the process; `embedding` and `chat` are `{url, ok, lastError, lastErrorAt}` (`ok` is `null` before the first request; `chat` is `null` without a chat model); `stats.unindexed` counts messages and facts not yet embedded |
 | `POST /v1/memory/messages` | `{session, messages: [{role, text, id?, at?}]}` | `{stored}`, once the messages are in the store (they are embedded afterwards) |
-| `POST /v1/memory/recall` | `{query, session?, budget_tokens?}` (current session excluded, no rerank) | `{text, ids, reranked}` — `text` is the `<memory>` block or `""`; `503 {error, cause}` when the query cannot be embedded (`cause`: `embedding-timeout` or `embedding-unavailable`) |
-| `POST /v1/memory/search` | `{query, budget_tokens?, rerank?}` (all sessions) | same |
+| `POST /v1/memory/recall` | `{query, session?, budget_tokens?}` (current session excluded, no rerank; `""` when nothing is at least `recall.minSimilarity` alike: 0.31 with EmbeddingGemma 300m) | `{text, ids, reranked}` — `text` is the `<memory>` block or `""`; `503 {error, cause}` when the query cannot be embedded (`cause`: `embedding-timeout` or `embedding-unavailable`) |
+| `POST /v1/memory/search` | `{query, budget_tokens?, rerank?}` (all sessions, not gated; the MCP `recall` tool uses it) | same |
 | `POST /v1/memory/flush` | `{session?}` | `{ok}` |
 | `POST /v1/memory/forget` | exactly one of `{session}`, `{before}` (ISO 8601 date or date-time; a date alone is local midnight), `{all: true}`; anything else is `400` | `{turns, units, facts, segments, links, vacuumed}` — rows deleted; `vacuumed: false` when another process kept the file from being rewritten (see Forgetting) |
 

@@ -71,7 +71,8 @@ test('mcp: initialize, tools, ping, errors; forget only when enabled', async () 
 
   const empty = await h.handle(call(6, 'recall', { query: 'anything' }))
   assert.equal(empty.result.content[0].text, 'No matching memories.')
-  assert.deepEqual(posted[0], { path: '/v1/memory/recall', body: { query: 'anything' } }, 'one server process serves many chats: nothing is excluded')
+  assert.deepEqual(posted[0], { path: '/v1/memory/search', body: { query: 'anything', rerank: false } },
+    'one server process serves many chats: nothing is excluded; the model\'s own search is not gated')
   const bad = await h.handle(call(7, 'remember', { messages: [{ role: 'system', text: 'x' }] }))
   assert.equal(bad.result.isError, true)
   assert.equal(h.saved, false)

@@ -138,6 +138,54 @@ test('proxy: a chat remembers, another chat recalls (streamed), the history is s
   }
 })
 
+test('proxy: a new chat about something else gets no memory (recall.minSimilarity, M2); 0, or another embedding model, turns the gate off', async () => {
+  // Unset, the gate is 0.31 for EmbeddingGemma 300m (the default model, as measured) and off for another model.
+  for (const [model, minSimilarity, gated] of [['embeddinggemma', undefined, true], ['embeddinggemma', 0, false],
+    ['nomic-embed-text', undefined, false], ['nomic-embed-text', 0.31, true]]) {
+    const emb = await fakeEmbeddings()
+    const upstream = await fakeModel()
+    const dir = mkdtempSync(join(tmpdir(), 'proxy-'))
+    const base = defaults(dir)
+    assert.equal(base.recall.minSimilarity, undefined)
+    const s = await start({ ...base, port: 0, token: 'tok',
+      embedding: { ...base.embedding, model, baseUrl: `${emb.url}/v1`, autoPull: false },
+      recall: { ...base.recall, ...minSimilarity === undefined ? {} : { minSimilarity } },
+      proxy: { ...base.proxy, enabled: true, port: 0, upstream: `${upstream.url}/v1` } })
+    const health = () => fetch(`http://127.0.0.1:${s.port}/health`, { headers: { authorization: 'Bearer tok' } }).then(r => r.json())
+    const chat = body => fetch(`http://127.0.0.1:${s.proxyPort}/v1/chat/completions`, { method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: 'Bearer tok' }, body: JSON.stringify(body) }).then(r => r.json())
+    const at = `${model}, minSimilarity ${minSimilarity}`
+    try {
+      await chat({ model: 'local-model', messages: [{ role: 'user', content: 'I adopted a cat named Mochi last week.' }] })
+      await indexed(health)
+      await chat({ model: 'local-model', messages: [{ role: 'user', content: 'Explain how rainbows form after rain.' }] })
+      const unrelated = JSON.stringify(upstream.seen.at(-1).body.messages)
+      if (gated) assert.doesNotMatch(unrelated, /<memory>/, `nothing alike: no memory (${at})`)
+      else assert.match(unrelated, /<memory>[\s\S]*Mochi/, `without the gate the best excerpt is added anyway (${at})`)
+      await chat({ model: 'local-model', messages: [{ role: 'user', content: 'What food should I buy for my cat Mochi?' }] })
+      assert.match(JSON.stringify(upstream.seen.at(-1).body.messages), /<memory>[\s\S]*Mochi/, `alike: recalled (${at})`)
+    } finally {
+      await s.close(); await upstream.close(); await emb.close()
+    }
+  }
+})
+
+test('proxy: a chat that stays quiet for proxy.segmentIdleMinutes becomes a segment for facts', async () => {
+  const t = await setup({ segmentIdleMinutes: 0.002 })  // 120 ms
+  try {
+    await (await t.chat({ model: 'local-model', messages: [{ role: 'user', content: 'I adopted a cat named Mochi.' }] })).json()
+    assert.equal((await t.health()).stats.segmentsPending, 0, 'still open right after the reply')
+    let pending = 0
+    for (let k = 0; k < 50 && !pending; k++) {
+      await new Promise(r => setTimeout(r, 20))
+      pending = (await t.health()).stats.segmentsPending
+    }
+    assert.equal(pending, 1, 'closed once the chat was quiet (the sidecar default facts.segmentIdleMinutes is 30)')
+  } finally {
+    await t.close()
+  }
+})
+
 test('proxy: pass-through, opt-out, app tasks, token and browser refusals, upstream down', async () => {
   const t = await setup()
   try {

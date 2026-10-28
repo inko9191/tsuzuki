@@ -166,12 +166,42 @@ export function forgetScope(args: { session?: unknown, before?: unknown, all?: u
   return args.all === true ? { all: true } : 'all must be true'
 }
 
+/**
+ * Default `minSimilarity` of automatic recall (before each user message): τ* of M2, set before the test on 253 earlier
+ * questions so that at least 98% of them keep their memory (docs/MEMORY_MISFIRE_M2_PREREG.md). Measured with
+ * EmbeddingGemma 300m; another embedding model needs its own value.
+ */
+export const RECALL_MIN_SIMILARITY = 0.31
+
+/**
+ * `minSimilarity` of automatic recall when the config sets none: `RECALL_MIN_SIMILARITY` for EmbeddingGemma 300m (not
+ * EmbeddingGemma 2) at its full 768 dimensions, the model M2 measured it with; 0, no gate, for any other model, whose
+ * cosines lie elsewhere. `model`: the model's name, id or file name; `dims`: its vector length when known.
+ */
+export function defaultMinSimilarity(model: string, dims?: number): number {
+  const gemma300m = /embedding-?gemma/i.test(model) && !/embedding-?gemma[-_ ]?v?2(?![0-9])/i.test(model)
+  return gemma300m && (dims === undefined || dims === 768) ? RECALL_MIN_SIMILARITY : 0
+}
+
 export interface Retrieval {
   /** Rendered excerpts (empty when nothing fits or nothing is stored). */
   text: string
   ids: string[]
   reranked: boolean
   candidates: number
+  /** The best cosine between the query and a window or fact that could be returned; set once the query was ranked. */
+  similarity?: number
+  /** True when nothing was returned because `similarity` was below `minSimilarity`. */
+  gated?: boolean
+}
+
+/** One log line on what an automatic recall added: how many messages and how alike, never their text. */
+export function recallNote(found: Retrieval, minSimilarity: number): string {
+  const alike = found.similarity !== undefined && Number.isFinite(found.similarity) ? found.similarity.toFixed(2) : null
+  if (found.text) return `recalled ${found.ids.length} messages (the closest is ${alike} alike)`
+  if (alike === null) return 'no memory added: nothing from other conversations yet'
+  if (found.gated) return `no memory added: the closest earlier message is ${alike} alike, below recall.minSimilarity ${minSimilarity}`
+  return `no memory added: nothing fits (the closest earlier message is ${alike} alike)`
 }
 
 /** Tries of one update check when the chat server cannot be reached, and the pause before the n-th retry (n × this). */
@@ -276,9 +306,11 @@ export class Memory {
   /**
    * Stores one message (redacted), synchronously, without embedding it; `indexTurn()` embeds its window. Hosts answer
    * once this returns, so a slow or hung embedding model never holds the conversation (a window not indexed is
-   * embedded by `backfill()`). Returns null after `close()` or for an empty message.
+   * embedded by `backfill()`). Returns null after `close()` or for an empty message. `idleMinutes`: the quiet time after
+   * which the session's open part becomes a segment (default `segmentIdleMinutes`).
    */
-  record(message: { id: string, session: string, role: string, text: string, at?: number }): StoredTurn | null {
+  record(message: { id: string, session: string, role: string, text: string, at?: number },
+    idleMinutes: number = this.options.segmentIdleMinutes): StoredTurn | null {
     if (this.closed || !message.text.trim()) return null
     const at = message.at ?? Date.now()
     let text = message.text.trim()
@@ -296,7 +328,7 @@ export class Memory {
       this.turnById?.set(turn.id, turn)
     }
     this.maybeCloseSegment(turn.session, false)
-    this.armIdle(turn.session)
+    this.armIdle(turn.session, idleMinutes)
     return turn
   }
 
@@ -541,10 +573,10 @@ export class Memory {
 
   // -- segments and fact extraction -------------------------------------------------------
 
-  private armIdle(session: string): void {
+  private armIdle(session: string, minutes: number): void {
     clearTimeout(this.idleTimers.get(session))
     const timer = setTimeout(() => { this.idleTimers.delete(session); this.maybeCloseSegment(session, true) },
-      this.options.segmentIdleMinutes * 60_000)
+      minutes * 60_000)
     timer.unref?.()
     this.idleTimers.set(session, timer)
   }
@@ -716,12 +748,18 @@ export class Memory {
    * Only the ranked candidates' messages are clipped and looked up, and the ranked index is kept between calls
    * (before 2026-10-24 every stored message was clipped and every unit sorted on each call: 209 ms at 5,000 sessions).
    *
+   * With `minSimilarity`, nothing is returned when no window or fact that could be returned (one of its messages is
+   * neither excluded nor in context) has at least that cosine with the query (M2, docs/MEMORY_MISFIRE_M2_RESULTS.md: at
+   * 0.31 with EmbeddingGemma 300m, automatic recall stopped most refusals and unrelated excerpts in messages that need no
+   * memory, and kept the answers that need it).
+   *
    * The query embedding is limited to `queryTimeoutMs` (throws {@link EmbeddingTimeoutError}); a rerank to
    * `rerankTimeoutMs`, and it is skipped at once when the chat server does not answer at all. Either way the dense order
    * is returned. `signal` (the caller giving up) aborts everything and throws.
    */
   async retrieve(query: string, options: { rerank: boolean, excludeSessions?: readonly string[], budgetTokens?: number,
-    signal?: AbortSignal, inContext?: (turn: { id: string, session: string }) => boolean } = { rerank: false }): Promise<Retrieval> {
+    minSimilarity?: number, signal?: AbortSignal,
+    inContext?: (turn: { id: string, session: string }) => boolean } = { rerank: false }): Promise<Retrieval> {
     const indexed = this.allUnits().some(u => u.set === 'p2' || u.set === 'fact')
     // Nothing indexed: nothing to find, unless the embedding model is down while messages wait to be indexed; then the
     // query is embedded anyway, so the caller learns why (and an answer starts the backfill).
@@ -736,7 +774,17 @@ export class Memory {
     const index = this.rankIndex(this.embedder.model(), qv!.length)
     if (index.skipped()) this.log('warn', `${index.skipped()} units embedded with another model are skipped`)
     const kept = index.units()
-    let order = p.distinct(index.rank(qv!).map(([i]) => i), kept)
+    // The gate looks only at units that can be returned: one of their messages is neither excluded nor in context.
+    const known = this.turnIndex(), excludedSessions = new Set(options.excludeSessions ?? [])
+    const returnable = (id: string) => {
+      const t = known.get(id)
+      return !!t && !excludedSessions.has(t.session) && !options.inContext?.({ id: t.id, session: t.session })
+    }
+    const { order: fused, best: similarity } = index.rank(qv!, u => u.turns.some(returnable))
+    let order = p.distinct(fused.map(([i]) => i), kept)
+    if (options.minSimilarity && similarity < options.minSimilarity) {
+      return { text: '', ids: [], reranked: false, candidates: order.length, similarity, gated: true }
+    }
     let reranked = false
     if (options.rerank && this.chat && order.length) {
       const limit = AbortSignal.timeout(this.options.rerankTimeoutMs)
@@ -778,7 +826,7 @@ export class Memory {
     }
     const { text, ids } = p.selectMemory(ranked, lookup, exclude, options.budgetTokens ?? this.options.budgetTokens,
       estimateTokens, ts => p.renderDated(ts, notes))
-    return { text, ids, reranked, candidates: order.length }
+    return { text, ids, reranked, candidates: order.length, similarity }
   }
 
   stats(): Record<string, number> {

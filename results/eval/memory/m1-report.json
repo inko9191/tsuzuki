@@ -1,0 +1,127 @@
+{
+  "plan_sha256": "f781b501fd72f0ed85a564f9423638f403bd453611f4aac73c7b34c5380f77c7",
+  "tau": 0.3846428398125011,
+  "test_users": 64,
+  "probes": 512,
+  "questions": 64,
+  "rates": {
+    "N": {
+      "misfire": 0.0,
+      "accuracy": 0.0625
+    },
+    "P": {
+      "misfire": 0.09765625,
+      "accuracy": 0.609375
+    },
+    "H": {
+      "misfire": 0.0546875,
+      "accuracy": 0.5625
+    },
+    "G": {
+      "misfire": 0.07421875,
+      "accuracy": 0.578125
+    }
+  },
+  "by_language": {
+    "en": {
+      "N": {
+        "misfire": 0.0,
+        "accuracy": 0.09375
+      },
+      "P": {
+        "misfire": 0.08203125,
+        "accuracy": 0.5
+      },
+      "H": {
+        "misfire": 0.05078125,
+        "accuracy": 0.46875
+      },
+      "G": {
+        "misfire": 0.03515625,
+        "accuracy": 0.5
+      }
+    },
+    "ja": {
+      "N": {
+        "misfire": 0.0,
+        "accuracy": 0.03125
+      },
+      "P": {
+        "misfire": 0.11328125,
+        "accuracy": 0.71875
+      },
+      "H": {
+        "misfire": 0.05859375,
+        "accuracy": 0.65625
+      },
+      "G": {
+        "misfire": 0.11328125,
+        "accuracy": 0.65625
+      }
+    }
+  },
+  "comparisons": {
+    "problem P-N misfire": {
+      "difference": 0.09765625,
+      "ci95": [
+        0.072265625,
+        0.123046875
+      ]
+    },
+    "H-P misfire": {
+      "difference": -0.04296875,
+      "ci95": [
+        -0.06640625,
+        -0.01953125
+      ]
+    },
+    "H-P accuracy": {
+      "difference": -0.046875,
+      "ci95": [
+        -0.125,
+        0.015625
+      ]
+    },
+    "H verdict": {
+      "reduces_misfires": true,
+      "keeps_answers": false
+    },
+    "G-P misfire": {
+      "difference": -0.0234375,
+      "ci95": [
+        -0.03515625,
+        -0.01171875
+      ]
+    },
+    "G-P accuracy": {
+      "difference": -0.03125,
+      "ci95": [
+        -0.078125,
+        0.0
+      ]
+    },
+    "G verdict": {
+      "reduces_misfires": true,
+      "keeps_answers": true
+    }
+  },
+  "gate": {
+    "questions_recalled": 0.90625,
+    "probes_recalled": 0.544921875,
+    "auroc_top_cosine": 0.66033935546875
+  },
+  "failures": {
+    "judge": 0,
+    "answers_cut": 1237
+  },
+  "second_judge": {
+    "items": 120,
+    "agreement": 0.8666666666666667,
+    "kappa": 0.4142769981696159,
+    "claude_misfire_by_arm": {
+      "N": 0.0,
+      "P": 0.35,
+      "H": 0.225
+    }
+  }
+}

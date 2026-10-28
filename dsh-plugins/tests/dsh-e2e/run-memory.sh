@@ -33,7 +33,7 @@ until curl -sf "http://127.0.0.1:$port/v1/models" > /dev/null; do kill -0 $fake 
 (cd "$plugins" && npx -y pnpm@10.26.1 -r --filter './packages/*' pack --pack-destination "$plugins/dist") > "$out/pack.txt" 2>&1
 "$dsh" --profile memtest --from-default-profile headless --dump-config > /dev/null 2>&1
 "$dsh" plugin --profile memtest add "$plugins/dist/dsh-text-embeddings-0.1.0.tgz" \
-  "$plugins/dist/dsh-text-embeddings-openai-0.1.0.tgz" "$plugins/dist/dsh-tsuzuki-0.1.0.tgz" > "$out/plugin-add.txt" 2>&1
+  "$plugins/dist/dsh-text-embeddings-openai-0.1.0.tgz" "$plugins/dist/dsh-tsuzuki-$(node -p 'require(process.argv[1]).version' "$plugins/packages/tsuzuki/package.json").tgz" > "$out/plugin-add.txt" 2>&1
 cat > "$DSH_HOME/profiles/memtest/cordis.patch.yml" <<YAML
 - id: llm-pi-ai
   config:
@@ -63,6 +63,8 @@ cat > "$DSH_HOME/profiles/memtest/cordis.patch.yml" <<YAML
       document: 'title: none | text: '
 - id: tsuzuki
   config:
+    tool:
+      forget: true
     llm:
       baseUrl: http://127.0.0.1:$port/v1
     facts:

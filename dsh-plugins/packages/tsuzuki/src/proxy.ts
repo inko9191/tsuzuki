@@ -16,7 +16,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import { request as httpRequest, type IncomingMessage, type ServerResponse } from 'node:http'
 import { request as httpsRequest } from 'node:https'
 import { recallText } from './format.ts'
-import type { Memory } from './memory.ts'
+import { recallNote, type Memory } from './memory.ts'
 import type { MemoryStore, StoredTurn } from './store.ts'
 
 export interface ProxyOptions {
@@ -27,6 +27,13 @@ export interface ProxyOptions {
   /** Sent upstream as a bearer token when set (the client's own Authorization is the proxy's token, never forwarded). */
   apiKey: string
   budgetTokens: number
+  /** No recall when no stored message is at least this alike (0: off); see `Memory.retrieve`. */
+  minSimilarity: number
+  /**
+   * Minutes a chat stays quiet before its open part becomes a segment for facts. Chat APIs never say that a chat ended,
+   * so this is shorter than the sidecar's `facts.segmentIdleMinutes` (Hermes and MCP clients flush when they end).
+   */
+  segmentIdleMinutes: number
   /** Runs `work` after the captures already queued, so messages are stored in arrival order. */
   queue<T>(work: () => T): Promise<T>
   /** Embeds the windows of newly stored messages in the background. */
@@ -227,7 +234,7 @@ export function proxyHandler(options: ProxyOptions): (req: IncomingMessage, res:
         seen.set(m.key, occurrence + 1)
         const id = messageId(m.key, session, occurrence)
         ids.add(id)
-        return options.memory.record({ id, session, role: m.role, text: m.text })
+        return options.memory.record({ id, session, role: m.role, text: m.text }, options.segmentIdleMinutes)
       })
       return { session, turns }
     })
@@ -238,8 +245,9 @@ export function proxyHandler(options: ProxyOptions): (req: IncomingMessage, res:
       await options.settled()
       // Leave out what the app sent (the model reads it anyway), wherever it is stored.
       const found = await options.memory.retrieve(query, { rerank: false, budgetTokens: options.budgetTokens,
-        inContext: t => ids.has(t.id) })
+        minSimilarity: options.minSimilarity, inContext: t => ids.has(t.id) })
       if (found.text) sent = withRecall(messages, recallText(found.text))
+      options.log('info', `proxy: ${recallNote(found, options.minSimilarity)}`)
       recallWarned = false
     } catch (error) {
       // The chat goes on without memory (the embedding model may be down); said once until a recall works again.
@@ -250,7 +258,8 @@ export function proxyHandler(options: ProxyOptions): (req: IncomingMessage, res:
     if (!reply.trim()) return
     const key = contentKey('assistant', reply)
     const turn = await options.queue(() => options.memory.record({
-      id: messageId(key, stored.session, seen.get(key) ?? 0), session: stored.session, role: 'assistant', text: reply }))
+      id: messageId(key, stored.session, seen.get(key) ?? 0), session: stored.session, role: 'assistant', text: reply },
+      options.segmentIdleMinutes))
     if (turn) options.index([turn])
   }
 

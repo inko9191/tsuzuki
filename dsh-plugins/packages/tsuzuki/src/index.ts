@@ -28,7 +28,7 @@ import { createHash } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { OpenAIChat, LLAMA_CPP_EXTRA } from './llm.ts'
-import { EmbeddingTimeoutError, EmbeddingUnavailableError, Memory, clip, describe, forgetScope, formatDate, within, type Embedder,
+import { EmbeddingTimeoutError, EmbeddingUnavailableError, Memory, defaultMinSimilarity, clip, describe, forgetScope, formatDate, within, type Embedder,
   type ForgetResult, type ForgetScope } from './memory.ts'
 import { linkedSignal } from './signals.ts'
 import { GUIDE, recallText, workingText } from './format.ts'
@@ -50,7 +50,7 @@ export const inject = ['textEmbeddings', 'tools', 'systemPrompt']
 export interface Config {
   dataDir: string
   capture: { enabled: boolean, skipSubagents: boolean, redactSecrets: boolean }
-  recall: { enabled: boolean, budgetTokens: number, rerank: boolean, timeoutMs: number, queryTokens: number }
+  recall: { enabled: boolean, budgetTokens: number, rerank: boolean, timeoutMs: number, queryTokens: number, minSimilarity?: number }
   tool: { enabled: boolean, budgetTokens: number, rerank: boolean, timeoutMs: number, forget: boolean }
   llm: { baseUrl: string, model: string, apiKey: string, server: 'llama.cpp' | 'openai', timeoutMs: number, rerankTimeoutMs: number, yieldWhenBusy: boolean }
   facts: { enabled: boolean, segmentTokens: number, segmentIdleMinutes: number, intervalSeconds: number, updateLinks: boolean }
@@ -71,6 +71,9 @@ export const Config: z<Config> = z.object({
     rerank: z.boolean().default(false).description('Rerank with the chat model (better recall, adds seconds per turn).'),
     timeoutMs: z.natural().default(4000).description('Skip recall for the turn when retrieval takes longer.'),
     queryTokens: z.natural().min(16).default(400).description('Leading part of the user message used as the query.'),
+    minSimilarity: z.number().min(0).max(1).description('Recall nothing when no message of another session is at least '
+      + 'this alike (cosine); 0 turns it off. Unset: 0.31 with EmbeddingGemma 300m, the model it was measured with (M2: '
+      + 'fewer refusals and unrelated excerpts, same answers), and off with any other model.'),
   }),
   tool: z.object({
     enabled: z.boolean().default(true),
@@ -221,7 +224,8 @@ export function apply(ctx: Context, config: Config): void {
   const logger = ctx.logger
   let ready: Promise<void> = Promise.resolve()
   let closed = false
-  const memory = new Memory(store, new ServiceEmbedder(ctx, config.embedding), config.facts.enabled ? chat : null, {
+  const embedder = new ServiceEmbedder(ctx, config.embedding)
+  const memory = new Memory(store, embedder, config.facts.enabled ? chat : null, {
     segmentTokens: config.facts.segmentTokens, segmentIdleMinutes: config.facts.segmentIdleMinutes,
     messageTokens: config.embedding.messageTokens, budgetTokens: config.recall.budgetTokens, updateLinks: config.facts.updateLinks, redactSecrets: config.capture.redactSecrets,
     queryTimeoutMs: config.embedding.queryTimeoutMs, rerankTimeoutMs: config.llm.rerankTimeoutMs,
@@ -332,6 +336,12 @@ export function apply(ctx: Context, config: Config): void {
   }
   // -- recall before each new user message -------------------------------------------------------
   if (config.recall.enabled) {
+    // Unset: 0.31 for EmbeddingGemma 300m at 768 dimensions, as measured; off for another model (id `provider:model:dims`).
+    const minSimilarity = (): number => {
+      if (typeof config.recall.minSimilarity === 'number') return config.recall.minSimilarity
+      const id = embedder.model(), dims = Number(id.slice(id.lastIndexOf(':') + 1))
+      return defaultMinSimilarity(id, Number.isInteger(dims) && dims > 0 ? dims : undefined)
+    }
     ctx.systemPrompt.section({ name: 'tsuzuki', order: 5100, text: GUIDE, interpolate: false })
     ctx.on('agent/pre-step', async (payload, next): Promise<PreStepDecision> => {
       const decision = await next()
@@ -345,7 +355,7 @@ export function apply(ctx: Context, config: Config): void {
         const found = await withTimeout(async signal => {
           await within(ready, READY_WAIT_MS)
           return signal.aborted ? undefined : memory.retrieve(query, { rerank: config.recall.rerank, excludeSessions: [sessionId],
-            budgetTokens: config.recall.budgetTokens, signal })
+            budgetTokens: config.recall.budgetTokens, minSimilarity: minSimilarity(), signal })
         }, config.recall.timeoutMs, payload.signal)
         if (!found?.text) return decision
         const injected = createUserMessage({ content: [{ type: 'text', text: recallText(found.text) }],

@@ -233,3 +233,22 @@ test('dsh: messages are stored at once even when embedding hangs, and dispose ab
   assert.ok(Date.now() - t < 500, `dispose took ${Date.now() - t} ms`)
   assert.ok(provider.aborted.includes('document'), 'the document embedding in flight was aborted')
 })
+
+test('dsh: recall.minSimilarity unset gates with 0.31 for EmbeddingGemma 300m only; another model is not gated', async () => {
+  for (const [model, dims, gated] of [['embeddinggemma-300m', 768, true], ['embeddinggemma-2', 768, false], ['bow', 64, false]]) {
+    const provider = { describe: () => ({ provider: 'egemma', model, defaultDimensions: dims }),
+      embed: async ({ input }) => ({ vectors: input.map(vectorFor) }) }
+    const { fiber, say, step } = await bootWith(provider)
+    try {
+      say('old', 'I adopted a cat named Mochi last week.')
+      await settle(60)
+      const unrelated = await step('now', 'Explain how rainbows form after rain.')
+      assert.equal(unrelated.messages.length, gated ? 1 : 2, `${model}: ${gated ? 'no' : 'a'} recall block for an unrelated message`)
+      const alike = await step('now', 'What should my cat Mochi eat, now that I adopted her last week?')
+      assert.equal(alike.messages.length, 2, `${model}: recalled when alike`)
+      assert.match(JSON.stringify(alike.messages[0].content), /Mochi/)
+    } finally {
+      await fiber.dispose()
+    }
+  }
+})

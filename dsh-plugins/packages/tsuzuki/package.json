@@ -1,6 +1,6 @@
 {
   "name": "dsh-tsuzuki",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "tsuzuki: local long-term conversation memory for DeepSeek Harness: p2 windows + LLM-extracted facts, EmbeddingGemma retrieval, optional LLM rerank, dated excerpts injected before each user turn",
   "license": "Apache-2.0",
   "type": "module",

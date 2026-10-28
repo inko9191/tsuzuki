@@ -1,0 +1,801 @@
+{
+  "plan_sha256": "bafccce70407d9630f5a3f4a32319cedecfb1bcd9817da890138f84fc3182130",
+  "tau": 0.31,
+  "kind_prompt_sha8": "214b6d38",
+  "test_users": 136,
+  "probes": 1088,
+  "questions": 136,
+  "rates": {
+    "N": {
+      "refusal": 0.0009,
+      "harm": 0.0037,
+      "harmful": 0.0028,
+      "fits": 0.0,
+      "accuracy": 0.0809
+    },
+    "P": {
+      "refusal": 0.0827,
+      "harm": 0.1489,
+      "harmful": 0.1452,
+      "fits": 0.205,
+      "accuracy": 0.5221
+    },
+    "G": {
+      "refusal": 0.0184,
+      "harm": 0.0643,
+      "harmful": 0.0643,
+      "fits": 0.1976,
+      "accuracy": 0.5147
+    },
+    "G·F": {
+      "refusal": 0.0,
+      "harm": 0.046,
+      "harmful": 0.046,
+      "fits": 0.1976,
+      "accuracy": 0.5147
+    },
+    "W": {
+      "refusal": 0.0119,
+      "harm": 0.0616,
+      "harmful": 0.0607,
+      "fits": 0.1939,
+      "accuracy": 0.5
+    },
+    "W·F": {
+      "refusal": 0.0,
+      "harm": 0.0496,
+      "harmful": 0.0496,
+      "fits": 0.1939,
+      "accuracy": 0.5
+    }
+  },
+  "by_language": {
+    "en": {
+      "N": {
+        "refusal": 0.0013,
+        "harm": 0.0052,
+        "harmful": 0.0039,
+        "fits": 0.0,
+        "accuracy": 0.0833
+      },
+      "P": {
+        "refusal": 0.1159,
+        "harm": 0.2044,
+        "harmful": 0.1992,
+        "fits": 0.1523,
+        "accuracy": 0.5
+      },
+      "G": {
+        "refusal": 0.0247,
+        "harm": 0.0846,
+        "harmful": 0.0846,
+        "fits": 0.1419,
+        "accuracy": 0.4896
+      },
+      "G·F": {
+        "refusal": 0.0,
+        "harm": 0.0599,
+        "harmful": 0.0599,
+        "fits": 0.1419,
+        "accuracy": 0.5
+      },
+      "W": {
+        "refusal": 0.0169,
+        "harm": 0.0755,
+        "harmful": 0.0742,
+        "fits": 0.1328,
+        "accuracy": 0.4688
+      },
+      "W·F": {
+        "refusal": 0.0,
+        "harm": 0.0586,
+        "harmful": 0.0586,
+        "fits": 0.1328,
+        "accuracy": 0.4792
+      }
+    },
+    "ja": {
+      "N": {
+        "refusal": 0.0,
+        "harm": 0.0,
+        "harmful": 0.0,
+        "fits": 0.0,
+        "accuracy": 0.075
+      },
+      "P": {
+        "refusal": 0.0031,
+        "harm": 0.0156,
+        "harmful": 0.0156,
+        "fits": 0.3312,
+        "accuracy": 0.575
+      },
+      "G": {
+        "refusal": 0.0031,
+        "harm": 0.0156,
+        "harmful": 0.0156,
+        "fits": 0.3312,
+        "accuracy": 0.575
+      },
+      "G·F": {
+        "refusal": 0.0,
+        "harm": 0.0125,
+        "harmful": 0.0125,
+        "fits": 0.3312,
+        "accuracy": 0.55
+      },
+      "W": {
+        "refusal": 0.0,
+        "harm": 0.0281,
+        "harmful": 0.0281,
+        "fits": 0.3406,
+        "accuracy": 0.575
+      },
+      "W·F": {
+        "refusal": 0.0,
+        "harm": 0.0281,
+        "harmful": 0.0281,
+        "fits": 0.3406,
+        "accuracy": 0.55
+      }
+    }
+  },
+  "comparisons": {
+    "G - P": {
+      "refusal": {
+        "difference": -0.0643,
+        "ci95": [
+          -0.08,
+          -0.0496
+        ]
+      },
+      "harm": {
+        "difference": -0.0846,
+        "ci95": [
+          -0.1029,
+          -0.0671
+        ]
+      },
+      "harmful": {
+        "difference": -0.0809,
+        "ci95": [
+          -0.0993,
+          -0.0634
+        ]
+      },
+      "fits": {
+        "difference": -0.0074,
+        "ci95": [
+          -0.0129,
+          -0.0028
+        ]
+      },
+      "accuracy": {
+        "difference": -0.0074,
+        "ci95": [
+          -0.0221,
+          0.0
+        ]
+      },
+      "by_language_en": {
+        "refusal": {
+          "difference": -0.0911,
+          "ci95": [
+            -0.1107,
+            -0.0729
+          ]
+        },
+        "harm": {
+          "difference": -0.1198,
+          "ci95": [
+            -0.1419,
+            -0.099
+          ]
+        },
+        "harmful": {
+          "difference": -0.1146,
+          "ci95": [
+            -0.1367,
+            -0.0924
+          ]
+        },
+        "fits": {
+          "difference": -0.0104,
+          "ci95": [
+            -0.0182,
+            -0.0039
+          ]
+        },
+        "accuracy": {
+          "difference": -0.0104,
+          "ci95": [
+            -0.0312,
+            0.0
+          ]
+        }
+      },
+      "by_language_ja": {
+        "refusal": {
+          "difference": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "harm": {
+          "difference": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "harmful": {
+          "difference": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "fits": {
+          "difference": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "accuracy": {
+          "difference": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        }
+      }
+    },
+    "G·F - G": {
+      "refusal": {
+        "difference": -0.0184,
+        "ci95": [
+          -0.0257,
+          -0.011
+        ]
+      },
+      "harm": {
+        "difference": -0.0184,
+        "ci95": [
+          -0.0257,
+          -0.011
+        ]
+      },
+      "harmful": {
+        "difference": -0.0184,
+        "ci95": [
+          -0.0257,
+          -0.011
+        ]
+      },
+      "fits": {
+        "difference": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "accuracy": {
+        "difference": 0.0,
+        "ci95": [
+          -0.0221,
+          0.0221
+        ]
+      },
+      "by_language_en": {
+        "refusal": {
+          "difference": -0.0247,
+          "ci95": [
+            -0.0352,
+            -0.0156
+          ]
+        },
+        "harm": {
+          "difference": -0.0247,
+          "ci95": [
+            -0.0352,
+            -0.0156
+          ]
+        },
+        "harmful": {
+          "difference": -0.0247,
+          "ci95": [
+            -0.0352,
+            -0.0156
+          ]
+        },
+        "fits": {
+          "difference": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "accuracy": {
+          "difference": 0.0104,
+          "ci95": [
+            0.0,
+            0.0312
+          ]
+        }
+      },
+      "by_language_ja": {
+        "refusal": {
+          "difference": -0.0031,
+          "ci95": [
+            -0.0094,
+            0.0
+          ]
+        },
+        "harm": {
+          "difference": -0.0031,
+          "ci95": [
+            -0.0094,
+            0.0
+          ]
+        },
+        "harmful": {
+          "difference": -0.0031,
+          "ci95": [
+            -0.0094,
+            0.0
+          ]
+        },
+        "fits": {
+          "difference": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "accuracy": {
+          "difference": -0.025,
+          "ci95": [
+            -0.075,
+            0.0
+          ]
+        }
+      }
+    },
+    "W - P": {
+      "refusal": {
+        "difference": -0.0708,
+        "ci95": [
+          -0.0864,
+          -0.0551
+        ]
+      },
+      "harm": {
+        "difference": -0.0873,
+        "ci95": [
+          -0.1075,
+          -0.0671
+        ]
+      },
+      "harmful": {
+        "difference": -0.0846,
+        "ci95": [
+          -0.1048,
+          -0.0643
+        ]
+      },
+      "fits": {
+        "difference": -0.011,
+        "ci95": [
+          -0.0221,
+          -0.0009
+        ]
+      },
+      "accuracy": {
+        "difference": -0.0221,
+        "ci95": [
+          -0.0735,
+          0.0221
+        ]
+      },
+      "by_language_en": {
+        "refusal": {
+          "difference": -0.099,
+          "ci95": [
+            -0.1185,
+            -0.0807
+          ]
+        },
+        "harm": {
+          "difference": -0.1289,
+          "ci95": [
+            -0.1523,
+            -0.1055
+          ]
+        },
+        "harmful": {
+          "difference": -0.125,
+          "ci95": [
+            -0.1484,
+            -0.1016
+          ]
+        },
+        "fits": {
+          "difference": -0.0195,
+          "ci95": [
+            -0.0326,
+            -0.0078
+          ]
+        },
+        "accuracy": {
+          "difference": -0.0312,
+          "ci95": [
+            -0.0833,
+            0.0104
+          ]
+        }
+      },
+      "by_language_ja": {
+        "refusal": {
+          "difference": -0.0031,
+          "ci95": [
+            -0.0094,
+            0.0
+          ]
+        },
+        "harm": {
+          "difference": 0.0125,
+          "ci95": [
+            -0.0031,
+            0.0312
+          ]
+        },
+        "harmful": {
+          "difference": 0.0125,
+          "ci95": [
+            -0.0031,
+            0.0312
+          ]
+        },
+        "fits": {
+          "difference": 0.0094,
+          "ci95": [
+            -0.0031,
+            0.0219
+          ]
+        },
+        "accuracy": {
+          "difference": 0.0,
+          "ci95": [
+            -0.125,
+            0.125
+          ]
+        }
+      }
+    },
+    "W - G": {
+      "refusal": {
+        "difference": -0.0064,
+        "ci95": [
+          -0.011,
+          -0.0018
+        ]
+      },
+      "harm": {
+        "difference": -0.0028,
+        "ci95": [
+          -0.011,
+          0.0055
+        ]
+      },
+      "harmful": {
+        "difference": -0.0037,
+        "ci95": [
+          -0.0129,
+          0.0055
+        ]
+      },
+      "fits": {
+        "difference": -0.0037,
+        "ci95": [
+          -0.0119,
+          0.0046
+        ]
+      },
+      "accuracy": {
+        "difference": -0.0147,
+        "ci95": [
+          -0.0588,
+          0.0294
+        ]
+      },
+      "by_language_en": {
+        "refusal": {
+          "difference": -0.0078,
+          "ci95": [
+            -0.0143,
+            -0.0026
+          ]
+        },
+        "harm": {
+          "difference": -0.0091,
+          "ci95": [
+            -0.0195,
+            0.0
+          ]
+        },
+        "harmful": {
+          "difference": -0.0104,
+          "ci95": [
+            -0.0208,
+            0.0
+          ]
+        },
+        "fits": {
+          "difference": -0.0091,
+          "ci95": [
+            -0.0195,
+            0.0
+          ]
+        },
+        "accuracy": {
+          "difference": -0.0208,
+          "ci95": [
+            -0.0625,
+            0.0208
+          ]
+        }
+      },
+      "by_language_ja": {
+        "refusal": {
+          "difference": -0.0031,
+          "ci95": [
+            -0.0094,
+            0.0
+          ]
+        },
+        "harm": {
+          "difference": 0.0125,
+          "ci95": [
+            -0.0031,
+            0.0312
+          ]
+        },
+        "harmful": {
+          "difference": 0.0125,
+          "ci95": [
+            -0.0031,
+            0.0312
+          ]
+        },
+        "fits": {
+          "difference": 0.0094,
+          "ci95": [
+            -0.0031,
+            0.0219
+          ]
+        },
+        "accuracy": {
+          "difference": 0.0,
+          "ci95": [
+            -0.125,
+            0.125
+          ]
+        }
+      }
+    },
+    "W·F - G·F": {
+      "refusal": {
+        "difference": 0.0,
+        "ci95": [
+          0.0,
+          0.0
+        ]
+      },
+      "harm": {
+        "difference": 0.0037,
+        "ci95": [
+          -0.0037,
+          0.011
+        ]
+      },
+      "harmful": {
+        "difference": 0.0037,
+        "ci95": [
+          -0.0037,
+          0.011
+        ]
+      },
+      "fits": {
+        "difference": -0.0037,
+        "ci95": [
+          -0.0119,
+          0.0046
+        ]
+      },
+      "accuracy": {
+        "difference": -0.0147,
+        "ci95": [
+          -0.0588,
+          0.0294
+        ]
+      },
+      "by_language_en": {
+        "refusal": {
+          "difference": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "harm": {
+          "difference": -0.0013,
+          "ci95": [
+            -0.0104,
+            0.0065
+          ]
+        },
+        "harmful": {
+          "difference": -0.0013,
+          "ci95": [
+            -0.0104,
+            0.0065
+          ]
+        },
+        "fits": {
+          "difference": -0.0091,
+          "ci95": [
+            -0.0195,
+            0.0
+          ]
+        },
+        "accuracy": {
+          "difference": -0.0208,
+          "ci95": [
+            -0.0625,
+            0.0208
+          ]
+        }
+      },
+      "by_language_ja": {
+        "refusal": {
+          "difference": 0.0,
+          "ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "harm": {
+          "difference": 0.0156,
+          "ci95": [
+            0.0,
+            0.0312
+          ]
+        },
+        "harmful": {
+          "difference": 0.0156,
+          "ci95": [
+            0.0,
+            0.0312
+          ]
+        },
+        "fits": {
+          "difference": 0.0094,
+          "ci95": [
+            -0.0031,
+            0.0219
+          ]
+        },
+        "accuracy": {
+          "difference": 0.0,
+          "ci95": [
+            -0.125,
+            0.125
+          ]
+        }
+      }
+    }
+  },
+  "verdict": {
+    "fewer_refusals": true,
+    "keeps_answers": true,
+    "propose_gate": true
+  },
+  "gate": {
+    "probes_recalled": 0.6765,
+    "questions_recalled": 0.9632,
+    "by_language": {
+      "en": {
+        "probes_recalled": 0.6263,
+        "questions_recalled": 0.9688
+      },
+      "ja": {
+        "probes_recalled": 0.7969,
+        "questions_recalled": 0.95
+      }
+    },
+    "auroc_top_cosine": 0.7814,
+    "w_units_median": {
+      "P": 9.0,
+      "W": 6.0
+    },
+    "w_equals_p": 0.4616
+  },
+  "tau_sweep": {
+    "0.25": {
+      "refusal": 0.0322,
+      "harm": 0.0882,
+      "harmful": 0.0873,
+      "fits": 0.205,
+      "accuracy": 0.5221
+    },
+    "0.28": {
+      "refusal": 0.0257,
+      "harm": 0.0772,
+      "harmful": 0.0772,
+      "fits": 0.2031,
+      "accuracy": 0.5221
+    },
+    "0.3": {
+      "refusal": 0.0202,
+      "harm": 0.0689,
+      "harmful": 0.0689,
+      "fits": 0.2004,
+      "accuracy": 0.5147
+    },
+    "0.32": {
+      "refusal": 0.0129,
+      "harm": 0.0579,
+      "harmful": 0.0579,
+      "fits": 0.1958,
+      "accuracy": 0.5147
+    },
+    "0.35": {
+      "refusal": 0.0074,
+      "harm": 0.046,
+      "harmful": 0.046,
+      "fits": 0.1866,
+      "accuracy": 0.5
+    },
+    "0.4": {
+      "refusal": 0.0028,
+      "harm": 0.0322,
+      "harmful": 0.0322,
+      "fits": 0.1737,
+      "accuracy": 0.4632
+    },
+    "0.45": {
+      "refusal": 0.0,
+      "harm": 0.0202,
+      "harmful": 0.0202,
+      "fits": 0.1517,
+      "accuracy": 0.4265
+    }
+  },
+  "failures": {
+    "kind_judge": 0,
+    "accuracy_judge": 0,
+    "answers_cut": {
+      "N": 965,
+      "P": 788,
+      "W": 180
+    },
+    "skipped_probes": {
+      "same_text": 0,
+      "near_copy": 0
+    }
+  },
+  "second_judge": {
+    "harmful_vs_not": {
+      "items": 150,
+      "agreement": 0.86,
+      "kappa": 0.6895,
+      "claude_yes_judge_no": 10,
+      "claude_no_judge_yes": 11
+    },
+    "three_way_agreement": 0.7733,
+    "refusal_precision": 0.9208,
+    "refusals_read": 101,
+    "harm_reliable": true
+  }
+}

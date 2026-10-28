@@ -1,0 +1,126 @@
+{
+  "version": 1,
+  "created_at": "2026-10-27T11:53:28+0900",
+  "experiment": "M1 misfire",
+  "inputs_sha256": "31733b5f86da2e0c28b856b1fb41ec124f19c925ecaf46074a3149230b3a309e",
+  "code_sha256": {
+    "scripts/eval/longmemeval_m1.py": "6100238ec465485e36e5c02564bcaf4462e99b74bddb7d9775a54eb8f992a830",
+    "scripts/eval/m1/build_inputs.py": "a004298d1a7f76cf60071cedb4ca4c3a5030bf10ab4ca82afea40c6ebdc9d11a",
+    "scripts/eval/m1/recall.mjs": "aa68aa8cd132a63028cc71fc33398c46562ea8027036b3bfb0a4ec23d41dc682",
+    "docs/MEMORY_MISFIRE_M1_PREREG.md": "7ea2f300246f52a3cb67cc2ea438af7750ca5d2e45ec0794c3ab70aac60753c1",
+    "dsh-plugins/packages/memory-egemma/src/memory.ts": "a74481ec693560e8a6d6aec84350cc30a2c6dc15d0cce05bdf3ec14188a17901",
+    "dsh-plugins/packages/memory-egemma/src/format.ts": "221f6a8d4ba21574353eb52f2310b88a3e7c6d4d6f1b250ed3666668e8d1b7aa",
+    "dsh-plugins/packages/memory-egemma/src/pipeline.ts": "2824d3ca9b38791c9e0b97514caf50b9360eb0acafa0d3f722dd986cddbe7d90",
+    "dsh-plugins/packages/memory-egemma/src/store.ts": "a62108582d3100336c08f5f2f1240ab0ca8de6123c00212f4dfa57420bca03c1",
+    "dsh-plugins/packages/memory-egemma/src/embedding-http.ts": "4010a7d9ec254b130a66225ceb27d5d69db00f6ec5b465e367b1457a87ecf572",
+    "dsh-plugins/packages/memory-egemma/src/unit-index.ts": "4e7192270ecb59da9ced2b0af89e35812338bd68bb730ec27ecffa15f5944e4d"
+  },
+  "models": {
+    "reader": "gemma-4-E2B_q4_0-it.gguf fa401b55b07ee70a54c6dae3903c783a6e65064312529ea57175cb5f8dec6634",
+    "embedding": "embeddinggemma-300M-Q8_0.gguf b5ce9d77a3fc4b3b39ccb5643c36777911cc4eb46a66962eadfa3f5f60490d63",
+    "judge": "Qwen3.8-27B-Q4_K_M.gguf (the U2 judge)"
+  },
+  "servers": {
+    "embed": [
+      "/opt/homebrew/bin/llama-server",
+      "-m",
+      "~/Downloads/engine-phase1-reference/models/embeddinggemma-gguf/embeddinggemma-300M-Q8_0.gguf",
+      "--embedding",
+      "-c",
+      "8192",
+      "-np",
+      "4",
+      "-b",
+      "2048",
+      "-ub",
+      "2048",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      "8391",
+      "--alias",
+      "m1-embeddinggemma"
+    ],
+    "reader": [
+      "/opt/homebrew/bin/llama-server",
+      "-m",
+      "~/Downloads/engine-phase1-reference/models/gemma-4-E2B/gemma-4-E2B_q4_0-it.gguf",
+      "-c",
+      "8192",
+      "-np",
+      "1",
+      "--reasoning",
+      "off",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      "8392",
+      "--alias",
+      "m1-e2b"
+    ],
+    "judge": [
+      "/opt/homebrew/bin/llama-server",
+      "-m",
+      "~/Downloads/qwen 3.8/models/Qwen3.8-27B-Q4_K_M.gguf",
+      "-ngl",
+      "99",
+      "-c",
+      "16384",
+      "--parallel",
+      "1",
+      "--reasoning",
+      "off",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      "8393",
+      "--alias",
+      "m1-qwen"
+    ]
+  },
+  "arms": {
+    "N": "no memory",
+    "P": "v0.2.0 proxy recall (product header), before the message",
+    "H": "P with the preregistered header (scripts/eval/m1/recall.mjs H_SENTENCE)",
+    "G": "P when the best window cosine >= tau (set on dev), else N; derived, not generated"
+  },
+  "system": "You are a helpful assistant.",
+  "answer_generation": {
+    "temperature": 0,
+    "seed": 0,
+    "max_tokens": 400,
+    "stream": false,
+    "cache_prompt": true,
+    "chat_template_kwargs": {
+      "enable_thinking": false
+    }
+  },
+  "misfire_prompt": "I will show you a message a user sent to an AI assistant, notes from the user's earlier conversations that the assistant was shown (or \"none\"), and the assistant's reply.\n\nThe user's message does not need anything from earlier conversations.\n\nDoes the reply bring up, refer to or make use of anything from the notes, or say or imply that the assistant remembers something about the user from before? Answer yes or no only.\n\nUser's message:\n{message}\n\nNotes from earlier conversations:\n{notes}\n\nAssistant's reply:\n{reply}",
+  "judge_generation": {
+    "temperature": 0,
+    "seed": 0,
+    "max_tokens": 10,
+    "stream": false,
+    "cache_prompt": true,
+    "chat_template_kwargs": {
+      "enable_thinking": false
+    }
+  },
+  "accuracy_templates_sha256": {
+    "single-session-user": "3e4884e50ba56289961ceb01a1926a8503fcd3649a1de8ea9e0c23a8affd1bb6",
+    "single-session-assistant": "3e4884e50ba56289961ceb01a1926a8503fcd3649a1de8ea9e0c23a8affd1bb6",
+    "single-session-preference": "748a5b8e09a2ea553fb1c62ba19a98a04a90fc8853194266a6e901ccc5c6cfec",
+    "multi-session": "3e4884e50ba56289961ceb01a1926a8503fcd3649a1de8ea9e0c23a8affd1bb6",
+    "temporal-reasoning": "41b9228e72383f57deb2ef0aa73946ec5a30c75c5c5a3215e051420ab3fbb3d9",
+    "knowledge-update": "5e8f6aa484d44484c16ed3ce2396ee26c0ccbe122a3447a9cd4febe78c161c4b",
+    "abstention": "5c05eb2ce11f92bd0ae18b9b412575953898531d845028eb9e63e974eb2cba67"
+  },
+  "split": "test users only for every verdict; dev users for the smoke run and tau",
+  "decisions": {
+    "problem": "misfire P - N (pooled test probes, user-clustered paired bootstrap 10000, seed 0): lower > 0 -> recall causes misfires",
+    "header": "misfire H - P upper < 0 -> reduces; accuracy H - P (test questions) lower >= -0.1 -> keeps answers; both -> H becomes the product default",
+    "gate": "tau = the largest value with >= 90% of dev questions at or above it; same two rules for G - P (secondary)",
+    "second_judge": "Claude labels 120 blinded probe items (40 per arm N/P/H, test, seed 0) before seeing Qwen labels; kappa < 0.6 -> no adoption",
+    "by_language": "reported, not used for verdicts"
+  }
+}

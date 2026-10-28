@@ -6,9 +6,9 @@
 
 <p align="center"><img src="docs/images/demo-en.gif" width="420" alt="Chat 1: the user says they started a part-time job at a ramen shop called Menya Kaze. In a new chat they ask where they work; tsuzuki recalls the earlier message and Gemma 4 E2B answers: Menya Kaze. The same model without tsuzuki asks for more context."></p>
 
-- **Remembers across chats.** Before each message, the model gets the relevant excerpts from earlier conversations, with their dates: at most 2,048 tokens, not the whole history.
-- **Runs on your machine.** EmbeddingGemma 300m finds the excerpts, and a small local model (Gemma 4 E2B) pulls facts out of past conversations. Nothing is sent anywhere unless you point it at a cloud model.
-- **Plugs into what you use.** Chat apps on llama.cpp, Ollama or LM Studio (change one URL; no tool calls needed), MCP clients (Claude Desktop, Claude Code, Cursor, LM Studio, Jan, Cline), Hermes Agent, DeepSeek Harness, or any program over HTTP.
+- **Remembers across chats.** Before each message, the model gets the relevant excerpts from earlier conversations, with their dates: at most 2,048 tokens, not the whole history, and nothing when no earlier message is alike.
+- **Runs on your machine.** EmbeddingGemma 300m finds the excerpts, and a small local model (Gemma 4 E2B) pulls facts out of past conversations. Nothing is sent anywhere unless you point it at a cloud model (with an MCP client on a cloud model, such as Claude Desktop, what it recalls goes to that model).
+- **Plugs into what you use.** Chat apps where you can set an OpenAI-compatible URL, such as Open WebUI, on llama.cpp, Ollama or LM Studio (no tool calls needed), MCP clients (Claude Desktop, Claude Code, Cursor, LM Studio, Jan, Cline), Hermes Agent, DeepSeek Harness, or any program over HTTP.
 - **Starts with your history.** Import your ChatGPT or Claude export, and earlier conversations are remembered from day one.
 - **Measured before it was claimed.** Every test below was pre-registered: the decision rules were fixed in writing before any answer was generated.
 
@@ -19,7 +19,7 @@
 </picture>
 </p>
 
-With the small Gemma 4 E2B, the memory answered better than the whole history (Japanese: better; English: at least equivalent). With Qwen 27B it was better in English and the same within noise in Japanese. Either way the model read 1/14 to 1/40 of the input. Intervals and limits: [Results](#results-pre-registered) and [What is not shown](#what-is-not-shown).
+With the small Gemma 4 E2B, the memory answered at least as well as the whole history in English and better in Japanese. With Qwen 27B it was better in English and the same within noise in Japanese. Either way the model read 1/14 to 1/40 of the input. Intervals and limits: [Results](#results-pre-registered) and [What is not shown](#what-is-not-shown).
 
 **Try it** (Node.js 22.19+ and llama.cpp; [details below](#quick-start-macos-linux-windows)):
 
@@ -33,13 +33,15 @@ The repository also contains **an unofficial inference engine for EmbeddingGemma
 
 ## Quick start (macOS, Linux, Windows)
 
-You need **Node.js 22 (22.19 or later) or 24+** and **llama.cpp** (its `llama-server`). For Hermes Agent, nothing else (the installer uses Hermes' own Python):
+You need **Node.js 22 (22.19 or later) or 24+**, **llama.cpp** (its `llama-server`) and **git**. For Hermes Agent, nothing else (the installer uses Hermes' own Python):
 
-| | Node.js | llama.cpp |
-|---|---|---|
-| macOS | `brew install node` | `brew install llama.cpp` |
-| Windows | `winget install OpenJS.NodeJS.LTS` | `winget install llama.cpp`, or a build from [its releases](https://github.com/ggml-org/llama.cpp/releases) |
-| Linux | [nodejs.org](https://nodejs.org) (distribution packages are often too old) | a build from [its releases](https://github.com/ggml-org/llama.cpp/releases), or `brew install llama.cpp` |
+| | Node.js | llama.cpp | git |
+|---|---|---|---|
+| macOS | `brew install node` | `brew install llama.cpp` | comes with the Xcode command line tools (`xcode-select --install`) |
+| Windows | `winget install OpenJS.NodeJS.LTS` | `winget install llama.cpp`, or a build from [its releases](https://github.com/ggml-org/llama.cpp/releases) | `winget install Git.Git` |
+| Linux | [nodejs.org](https://nodejs.org) (distribution packages are often too old) | a build from [its releases](https://github.com/ggml-org/llama.cpp/releases), or `brew install llama.cpp` | your package manager (`apt install git`) |
+
+On Windows, open a new terminal after `winget install`: the new programs are on `PATH` only there.
 
 Then:
 
@@ -60,17 +62,20 @@ It speaks English or Japanese (your system's language, or `--lang ja`), and ever
 
 | You use | Type | How the memory works there |
 |---|---|---|
-| A chat app on your own model server (llama.cpp, Ollama, LM Studio...) | `chat` | A proxy in front of the model server. In the app, set the OpenAI-compatible URL to `http://127.0.0.1:8293/v1` and the API key to the token setup prints. Every chat is stored, and earlier chats are recalled before each message, with no tool calls: the way memory was tested, and the choice for small local models, which often do not call tools reliably. |
+| A chat app on your own model server (llama.cpp, Ollama, LM Studio...) | `chat` | A proxy in front of the model server. In the app, set the OpenAI-compatible URL to `http://127.0.0.1:8293/v1` and the API key to the token setup prints (it is `token` in `~/.tsuzuki/config.json`). In Open WebUI: Admin Panel → Settings → Connections, add an OpenAI API connection. Every chat is stored, and earlier chats are recalled before each message, with no tool calls: the way memory was tested, and the choice for small local models, which often do not call tools reliably. |
 | Claude Desktop, Claude Code, Cursor, LM Studio, Jan, Cline, or another MCP client | `mcp` | Setup prints what to add to the client's MCP settings (for Claude Code, one `claude mcp add` command). The model gets the tools `recall` and `remember` and decides when to call them; the server's instructions tell it when. Nothing is stored unless it calls `remember`. |
 | Hermes Agent | `hermes` | Before each message the relevant memory is added, and every conversation is stored. Quit Hermes before the setup; then nothing else to start. |
 | Your own program | `app` | The HTTP API of the memory server ([3d](#3d-anything-else-the-http-sidecar)). |
 
 Setup asks for one of these words; `--for chat` (and so on) answers it ahead, for example in scripts. For `chat`, it also offers to start the memory server whenever you log in.
 
-In every case the memory starts llama.cpp itself when it needs it and leaves it running for next time (about 0.5 GB of memory for search, about 4 GB more with facts); `node scripts/setup.mjs --stop` stops everything. Facts appear about a minute after a conversation, and they run on your machine even when your agent uses a cloud model.
+In every case the memory starts llama.cpp itself when it needs it and leaves it running for next time (about 0.5 GB of memory for search, about 4 GB more with facts); `node scripts/setup.mjs --stop` stops everything. Facts are made in the background about a minute after a conversation ends, and they run on your machine even when your agent uses a cloud model. Hermes and MCP clients say when a conversation ends; chat apps do not, so through the proxy a chat counts as ended after 5 quiet minutes (`proxy.segmentIdleMinutes`).
 
 **About the proxy.**
+- It works with apps where you can set the server URL and the API key: Open WebUI, and other apps with an "OpenAI-compatible" setting. LM Studio's and Ollama's own chat windows have no such setting, and llama-server's built-in web page talks to llama-server directly, so they get no memory (LM Studio can use the memory as an MCP client: `--for mcp`).
 - The memory server must be running: setup starts it and offers to start it at login (`--autostart`); otherwise `node scripts/setup.mjs --start` starts it again after a restart of the computer.
+- When no earlier message is alike, nothing is added: below a cosine of 0.31 with EmbeddingGemma 300m (`recall.minSimilarity`; [M2](#m2-no-memory-for-messages-that-need-none)). The memory server's log (`~/.tsuzuki/sidecar.log`) has one line per message: how many earlier messages were added and how alike the closest one was, never their text.
+- The recall adds up to 2,048 tokens to each request. Give the model server room for it: Ollama's default context can be short (set `OLLAMA_CONTEXT_LENGTH`, for example 8192), and llama-server's is `-c`.
 - A chat is recognized by its earlier messages (their role and text), not by the system prompt, so a prompt with the time in it or an app that drops old messages keeps one conversation; the history sent again with each message is stored once. A chat's first message always starts a new conversation, so two chats that open with the same words stay apart. The recall leaves out exactly the messages the app sent.
 - Requests for the app's own background tasks (Open WebUI's titles and tags, which start with `### Task:`) and requests with the header `X-Memory: off` pass through without memory, as do `/v1/models` and other requests.
 - The recall goes before the last user message, not into the system prompt, so the model server's prompt cache still covers the earlier messages.
@@ -108,6 +113,12 @@ node scripts/memory.mjs import ~/Downloads/your-export.zip
 - `node scripts/setup.mjs --update` gets the newest version (`git pull`), rebuilds, restarts the memory server and shows what changed ([CHANGELOG](CHANGELOG.md)). Settings and memory are kept. Restart Hermes or your MCP client afterwards.
 - `--start` and `--stop` start or stop it by hand.
 
+### Removing it
+
+1. `node scripts/setup.mjs --autostart=off`, then `node scripts/setup.mjs --stop` (the memory server and the llama.cpp servers it started).
+2. Disconnect it: remove the `tsuzuki` entry from your MCP client's settings, point your chat app back at the model server, or, for Hermes, restore the `config.yaml` backup setup made next to it (or remove `memory.provider: tsuzuki`) and delete `<profile>/plugins/tsuzuki`.
+3. Delete `~/.tsuzuki` (the models and the memory; Hermes: `<profile>/tsuzuki`) and this folder.
+
 ### Testing it on your machine
 
 `node scripts/setup.mjs --report` runs the setup and prints a short report at the end: your OS, CPU, memory and GPU, llama.cpp's version and the devices it can use, and how long each step took. It is printed when setup fails, too, with the error. Your home folder and user name are taken out. Paste it into a [test report](https://github.com/inko9191/tsuzuki/issues/new?template=test-report.yml); a test only needs `--report --quick` (334 MB, about 5 minutes).
@@ -129,7 +140,7 @@ For DeepSeek Harness, your own model servers, Ollama, or this repository's Mac e
 
 1. **Capture.** User and assistant messages go into a SQLite file. Subagent sessions are skipped. Secrets are redacted first (see [Privacy](#privacy)).
 2. **Index.** Each message is embedded together with the message before it.
-3. **Facts.** Each session is cut into segments of about 2,500 tokens, or wherever 30 minutes pass with no message. For each segment, a local chat model runs in the background:
+3. **Facts.** Each session is cut into segments of about 2,500 tokens, or wherever 30 minutes pass with no message (5 through the chat proxy), or where the host says the session ended. For each segment, a local chat model runs in the background:
    - it lists the facts the segment states, and each fact cites the messages it came from;
    - it adds update links, which mark a newer fact as replacing an older one.
 
@@ -137,7 +148,8 @@ For DeepSeek Harness, your own model servers, Ollama, or this repository's Mac e
 4. **Recall.** Before each new user message:
    - the message is embedded;
    - message windows and facts are ranked and fused (RRF);
-   - the best messages from *other* sessions are selected, up to 2,048 tokens.
+   - when no window or fact of another session has a cosine of at least 0.31 with the message, nothing is added (the gate of M2; EmbeddingGemma 300m only, `recall.minSimilarity`);
+   - otherwise the best messages from *other* sessions are selected, up to 2,048 tokens.
 
    They are shown in date order, under the current date and the rule "the most recent statement is current". There is no reranking by default. A message's text cannot close or open the `<memory>` block, and its second and later lines are indented, so a stored message cannot pose as instructions or as another excerpt (the evaluations rendered multi-line messages without that indentation).
 5. **Tools.** `memory_search` (Hermes: `tsuzuki_search`) searches every session, including the current one (no rerank unless you turn it on). `memory_forget` (Hermes: `tsuzuki_forget`) deletes memory; it is **off by default** (see [Privacy](#privacy)).
@@ -149,9 +161,10 @@ Every decision rule was fixed in writing before any answer was generated. The nu
 The plugin's defaults are the tested setting **P**. They were chosen in an earlier exploratory round (U1, 30 questions) and then confirmed in U2 on questions not used before.
 
 **In short**
-- **With a small local model** (Gemma 4 E2B), the memory gives better answers than putting the whole history in the context: English +0.150 (E1, at least equivalent), Japanese +0.275 (J1, better).
+- **With a small local model** (Gemma 4 E2B), the memory answers at least as well as the whole history in the context in English (+0.150, E1, at least equivalent) and better in Japanese (+0.275, J1, better).
 - **With a large local model** (Qwen 27B): English +0.225 over the whole ~116k-token history with the same template (U2-AT, better); on ~45k-token Japanese histories, the same accuracy within noise at 1/14 of the input and ~17× faster (J1-Q, inconclusive).
 - **With thousands of stored sessions** accuracy falls. Facts (on whenever a local chat model is configured) win back part of it; a larger budget and reranking by a small model do not (S2, S3).
+- **Messages that need no memory** (M2): a similarity gate cut the replies that refuse ("it is not in my memory") from 8.3% to 1.8% and all harmful replies from 14.9% to 6.4% with Gemma 4 E2B, at the same accuracy on questions that need memory (−0.7 points [−2.2, 0.0]). It is on by default since 0.2.1.
 
 **Setup**
 - **Data.** [LongMemEval](https://github.com/xiaowu0162/LongMemEval)-S, cleaned release. 40 new questions, drawn by ID and type only with a fixed seed: knowledge-update 10, temporal-reasoning 10, multi-session 10, single-session 6, abstention 4. That is 1,862 history sessions. The question IDs are in `results/eval/memory/longmemeval-u2-plan.json`.
@@ -257,10 +270,26 @@ The scale test (below) showed recall falling as unrelated history piles up. S2 a
 - Building the facts of 5,000 sessions took E2B about 3.7 hours on the M5 Max (7,074 segments, 8 requests at a time). In normal use this runs in the background after each conversation, one request at a time: a median of 4.2 s per conversation, 7.9 s at the 90th percentile (60 LongMemEval-S conversations of about 2,200 tokens; [`results/eval/memory/write-cost-report.md`](results/eval/memory/write-cost-report.md), in Japanese). An earlier version of this README said about 10–14 s: that was the time of one request while 8 shared the GPU.
 - Second judge (Claude, blinded samples of 90 answers): agreement 0.978 (κ 0.95) in S2 and 0.944 (κ 0.89) in S3.
 
+### M2: no memory for messages that need none
+
+Most messages need no memory, but recall always added the closest excerpts, however unrelated. Gemma 4 E2B then refused ordinary requests ("it is not in my memory") or carried an unrelated earlier topic into its answer. M2 ([`docs/MEMORY_MISFIRE_M2_PREREG.md`](docs/MEMORY_MISFIRE_M2_PREREG.md); results [`docs/MEMORY_MISFIRE_M2_RESULTS.md`](docs/MEMORY_MISFIRE_M2_RESULTS.md)) tested a gate: nothing is added when the closest earlier message has a cosine below τ\* = 0.31 with the message. τ\* was set on separate users before the test. The test had 136 new users: 96 with English LongMemEval-S histories and 40 from a new self-made Japanese set (J2). They had 1,088 messages that need no memory and 136 questions that do. Gemma 4 E2B answered, with message windows only (quick).
+
+| | Refusals | Harmful replies (refusals, or unrelated memory brought in) | Accuracy on the questions |
+|---|---:|---:|---:|
+| no memory | 0.1% | 0.4% | 8.1% |
+| memory without the gate (0.2.0) | 8.3% | 14.9% | 52.2% |
+| **memory with the gate (0.2.1)** | **1.8%** | **6.4%** | **51.5%** |
+
+- Both pre-registered rules held: refusals −6.4 points [−8.0, −5.0]; accuracy −0.7 [−2.2, 0.0], within the −5-point margin.
+- The gate still added memory to 96% of the questions and to 68% of the other messages; one question lost its answer.
+- In Japanese it changed almost nothing: the Japanese messages shared topics with the histories, so 80% passed, and they had little harm to begin with. The harm that is left (6.4%) is almost all English: an earlier topic carried into an unrelated question, or an earlier reply's style copied.
+- Second judge (Claude, blinded): κ 0.69 with the Qwen judge.
+- 0.31 holds for EmbeddingGemma 300m, so with other embedding models the gate is off unless you set it. Facts (full) were not part of the test.
+
 Full tables, with the V1024R and T2048 ablations:
-- [`results/eval/memory/longmemeval-u2-report.md`](results/eval/memory/longmemeval-u2-report.md), [`longmemeval-u2-at-report.md`](results/eval/memory/longmemeval-u2-at-report.md), [`longmemeval-e1-report.md`](results/eval/memory/longmemeval-e1-report.md), [`j1-report.md`](results/eval/memory/j1-report.md), [`j1q-report.md`](results/eval/memory/j1q-report.md), [`s2-report.md`](results/eval/memory/s2-report.md), [`s3-report.md`](results/eval/memory/s3-report.md); exploratory: [`scale-diagnosis.md`](results/eval/memory/scale-diagnosis.md), [`scr1-report.md`](results/eval/memory/scr1-report.md)
+- [`results/eval/memory/longmemeval-u2-report.md`](results/eval/memory/longmemeval-u2-report.md), [`longmemeval-u2-at-report.md`](results/eval/memory/longmemeval-u2-at-report.md), [`longmemeval-e1-report.md`](results/eval/memory/longmemeval-e1-report.md), [`j1-report.md`](results/eval/memory/j1-report.md), [`j1q-report.md`](results/eval/memory/j1q-report.md), [`s2-report.md`](results/eval/memory/s2-report.md), [`s3-report.md`](results/eval/memory/s3-report.md), [`m2-report.json`](results/eval/memory/m2-report.json); exploratory: [`scale-diagnosis.md`](results/eval/memory/scale-diagnosis.md), [`scr1-report.md`](results/eval/memory/scr1-report.md)
 - [`longmemeval-u2-claude-judge.md`](results/eval/memory/longmemeval-u2-claude-judge.md), [`longmemeval-u2-at-claude-judge.md`](results/eval/memory/longmemeval-u2-at-claude-judge.md), [`longmemeval-e1-claude-judge.md`](results/eval/memory/longmemeval-e1-claude-judge.md), [`j1-claude-judge.md`](results/eval/memory/j1-claude-judge.md), [`j1q-claude-judge.md`](results/eval/memory/j1q-claude-judge.md), [`s2-claude-judge.md`](results/eval/memory/s2-claude-judge.md), [`s3-claude-judge.md`](results/eval/memory/s3-claude-judge.md)
-- Pre-registrations: [`docs/MEMORY_LONGMEMEVAL_U2_PREREG.md`](docs/MEMORY_LONGMEMEVAL_U2_PREREG.md), [`docs/MEMORY_LONGMEMEVAL_U2_AT_PREREG.md`](docs/MEMORY_LONGMEMEVAL_U2_AT_PREREG.md), [`docs/MEMORY_LONGMEMEVAL_E1_PREREG.md`](docs/MEMORY_LONGMEMEVAL_E1_PREREG.md) (the documents are in Japanese)
+- Pre-registrations: [`docs/MEMORY_LONGMEMEVAL_U2_PREREG.md`](docs/MEMORY_LONGMEMEVAL_U2_PREREG.md), [`docs/MEMORY_LONGMEMEVAL_U2_AT_PREREG.md`](docs/MEMORY_LONGMEMEVAL_U2_AT_PREREG.md), [`docs/MEMORY_LONGMEMEVAL_E1_PREREG.md`](docs/MEMORY_LONGMEMEVAL_E1_PREREG.md), [`docs/MEMORY_MISFIRE_M2_PREREG.md`](docs/MEMORY_MISFIRE_M2_PREREG.md) (the documents are in Japanese)
 
 ### About the pre-registrations
 
@@ -278,9 +307,12 @@ This public repository starts from a fresh snapshot (its first commit); later co
 - **The proxy and MCP clients.** The proxy uses the tested recall (message windows and facts, 2,048 tokens, before the user's message), but placed in the conversation the app sends rather than in the evaluation template; its effect on answers has not been measured. With MCP clients the model decides when to recall and what to remember; that has not been measured either. Both were checked to work: with Gemma 4 E2B behind the proxy, a new chat answered from an earlier one (in English and in Japanese), and the MCP server was checked with the official MCP Python SDK. They were not tried with each app listed above.
 - **Write-time cost.** The answer times do not include the background work when messages are stored (fact extraction and update checks with the chat model, plus embedding; with Gemma 4 E2B on the M5 Max a median of 4.2 s per conversation, one at a time). The full-history times were measured with llama.cpp's host prompt cache off.
 - **Comparison with published LongMemEval scores.** Not comparable: published scores use a GPT-4o judge and other models.
+- **The gate beyond M2.** The gate's 0.31 was measured with EmbeddingGemma 300m, message windows only, on each conversation's first message; not with facts (full), other embedding models, or later messages of a chat.
 - **Precision.** 40 questions give wide intervals. In U2 the primary judge is the same model that answered; the second judge is there to check that.
 
-## Requirements
+## Requirements (manual install)
+
+The [quick start](#quick-start-macos-linux-windows) needs only Node.js, llama.cpp and git. For the manual install:
 
 - **Node.js** `^22.19` or `>=24`. dsh and the sidecar use `node:sqlite`.
 - **A chat endpoint for facts.** OpenAI-compatible, with JSON-schema output. Tested: llama.cpp `llama-server` with Qwen3.8-27B Q4_K_M. Without one, memory still works on message windows only; that is **not** the tested setting P.
@@ -322,14 +354,14 @@ cmake --build build -j 8
 
 You do not need to start the engine yourself: the dsh provider and the sidecar start it on `127.0.0.1:8299` when they need it.
 
-**Linux, Windows, or a Mac without the engine: llama.cpp** (checked against the engine, see "What is not shown"). Download the GGUF (this also accepts the Gemma Terms of Use; sha256 `b5ce9d77a3fc4b3b39ccb5643c36777911cc4eb46a66962eadfa3f5f60490d63`, 334 MB) and start an embedding server on port 8081:
+**Linux, Windows, or a Mac without the engine: llama.cpp** (checked against the engine, see "What is not shown"). Download the GGUF (this also accepts the Gemma Terms of Use; sha256 `b5ce9d77a3fc4b3b39ccb5643c36777911cc4eb46a66962eadfa3f5f60490d63`, 334 MB) and start an embedding server on port 8291:
 
 ```bash
 hf download ggml-org/embeddinggemma-300M-GGUF embeddinggemma-300M-Q8_0.gguf --local-dir models
-llama-server -m models/embeddinggemma-300M-Q8_0.gguf --embedding -c 8192 -np 4 -b 2048 -ub 2048 --host 127.0.0.1 --port 8081
+llama-server -m models/embeddinggemma-300M-Q8_0.gguf --embedding -c 8192 -np 4 -b 2048 -ub 2048 --host 127.0.0.1 --port 8291 --alias tsuzuki-embeddinggemma
 ```
 
-`-c 8192 -np 4` gives each of the 4 slots 2,048 tokens, EmbeddingGemma's input limit, and `-ub 2048` lets one input fill a slot. (`hf` comes with `pip install huggingface_hub`; or download the file from the model page.) Port 8081 keeps 8080 free for your chat server.
+`-c 8192 -np 4` gives each of the 4 slots 2,048 tokens, EmbeddingGemma's input limit, and `-ub 2048` lets one input fill a slot. (`hf` comes with `pip install huggingface_hub`; or download the file from the model page.) Port 8291 and the alias are what the memory server uses when it starts llama.cpp itself (setup's way), so either can use a server the other started; 8080 stays free for your chat server.
 
 **Or Ollama** (not measured against the engine; pulling also accepts the Gemma Terms of Use):
 
@@ -349,7 +381,8 @@ dsh --profile <name> --from-default-profile headless --dump-config > /dev/null  
 
 ```bash
 dist="$PWD/dsh-plugins/dist"
-dsh plugin --profile <name> add "$dist/dsh-text-embeddings-0.1.0.tgz" "$dist/dsh-text-embeddings-tsuzuki-0.1.0.tgz" "$dist/dsh-tsuzuki-0.1.0.tgz"
+v=$(node -p "require('./dsh-plugins/packages/tsuzuki/package.json').version")
+dsh plugin --profile <name> add "$dist/dsh-text-embeddings-0.1.0.tgz" "$dist/dsh-text-embeddings-tsuzuki-0.1.0.tgz" "$dist/dsh-tsuzuki-$v.tgz"
 ```
 
 Then add rows to `$DSH_HOME/profiles/<name>/cordis.patch.yml` (`~/.dsh/profiles/<name>/` unless you set `DSH_HOME`). In a new profile that file holds only `[]` (an empty list): replace the `[]` with the rows, or dsh cannot read the file. A patch replaces the row's whole `config`, so write every setting you need:
@@ -367,13 +400,13 @@ Then add rows to `$DSH_HOME/profiles/<name>/cordis.patch.yml` (`~/.dsh/profiles/
     llm: { baseUrl: http://127.0.0.1:8080/v1 }   # your local chat server
 ```
 
-**With llama.cpp or Ollama instead**, add `dsh-text-embeddings-openai-0.1.0.tgz` instead of `dsh-text-embeddings-tsuzuki-0.1.0.tgz`, and use this row (`baseUrl` `http://127.0.0.1:8081/v1` for llama.cpp as above, `http://127.0.0.1:11434/v1` for Ollama):
+**With llama.cpp or Ollama instead**, add `dsh-text-embeddings-openai-0.1.0.tgz` instead of `dsh-text-embeddings-tsuzuki-0.1.0.tgz`, and use this row (`baseUrl` `http://127.0.0.1:8291/v1` for llama.cpp as above, `http://127.0.0.1:11434/v1` for Ollama):
 
 ```yaml
 - id: text-embeddings-openai
   disabled: false
   config:
-    baseUrl: http://127.0.0.1:8081/v1   # llama.cpp; Ollama: http://127.0.0.1:11434/v1
+    baseUrl: http://127.0.0.1:8291/v1   # llama.cpp; Ollama: http://127.0.0.1:11434/v1
     model: embeddinggemma
     dimensions: 768
     taskPrefixes:
@@ -391,13 +424,13 @@ Memory is stored in `$DSH_HOME/tsuzuki`.
 
 ### 3b. DeepSeek Harness desktop app
 
-Quit the app first, then run `bash dsh-plugins/scripts/install-desktop.sh` (add `llamacpp` or `ollama` as an argument to use llama.cpp on port 8081 or Ollama for embeddings; a second argument sets another local URL). The script backs up the profile files and prints how to undo the change. Memory is stored in `$DSH_HOME/tsuzuki` (`~/.dsh/tsuzuki` by default).
+Quit the app first, then run `bash dsh-plugins/scripts/install-desktop.sh` (add `llamacpp` or `ollama` as an argument to use llama.cpp on port 8291 or Ollama for embeddings; a second argument sets another local URL). The script backs up the profile files and prints how to undo the change. Memory is stored in `$DSH_HOME/tsuzuki` (`~/.dsh/tsuzuki` by default).
 
 ### 3c. Hermes Agent
 
 Before you start:
 - **Build the plugins** (step 1). The sidecar runs on Hermes' bundled Node (`~/.hermes/node/bin/node`); without it, on the `node` on your `PATH`, or set `memory.tsuzuki.node` in the profile's `config.yaml`.
-- **Embeddings.** With the Mac engine built (step 2), the installer uses it. Otherwise it writes an Ollama configuration and says so: make sure Ollama runs on `127.0.0.1:11434` with `embeddinggemma` pulled. For llama.cpp (step 2), pass `--embedding llamacpp` (port 8081; `--embedding-url` for another local port).
+- **Embeddings.** With the Mac engine built (step 2), the installer uses it. Otherwise it writes an Ollama configuration and says so: make sure Ollama runs on `127.0.0.1:11434` with `embeddinggemma` pulled. For llama.cpp (step 2), pass `--embedding llamacpp` (port 8291; `--embedding-url` for another local port).
 - **Facts.** The installer uses the profile's own model endpoint (`model.base_url`) for fact extraction, but only when it is on this machine (see [Privacy](#privacy)). For a remote endpoint it stops and changes nothing: re-run with `--no-chat` (message windows only, not the tested setting P), or with `--allow-remote-chat` if you accept that conversation text is sent there.
 
 Quit Hermes, then run (the profile must already have a `config.yaml`; `default` is the Hermes home itself):
@@ -422,7 +455,7 @@ node dsh-plugins/packages/tsuzuki/lib/server.js --config <dir>/config.json
 
 (The packed `dsh-tsuzuki` package installs the same server as the `tsuzuki-memory` command; without `--config` it uses `~/.tsuzuki/config.json`.)
 
-On the first start, the sidecar writes a default `config.json` next to the data: port `8297`, embeddings from Ollama `embeddinggemma`, **no chat model**. For the tested setting, set `chat.baseUrl` and `chat.model` (use `chat.server: "openai"` for servers other than llama.cpp). For llama.cpp embeddings (step 2), set `"embedding": {"baseUrl": "http://127.0.0.1:8081/v1", "model": "embeddinggemma"}`. To use the Mac engine instead, add:
+On the first start, the sidecar writes a default `config.json` next to the data: port `8297`, embeddings from Ollama `embeddinggemma`, **no chat model**. For the tested setting, set `chat.baseUrl` and `chat.model` (use `chat.server: "openai"` for servers other than llama.cpp). For llama.cpp embeddings (step 2), set `"embedding": {"baseUrl": "http://127.0.0.1:8291/v1", "model": "embeddinggemma"}`. To use the Mac engine instead, add:
 
 ```json
 "embedding": {"engine": {"engineRoot": "/abs/repo", "modelDir": "/abs/repo/models/embeddinggemma-300m", "modelName": "embeddinggemma-300m", "port": 8299}}
@@ -430,14 +463,14 @@ On the first start, the sidecar writes a default `config.json` next to the data:
 
 The sidecar reads `config.json` only when it starts: after a change, stop it and start it again.
 
-The proxy (`--for chat` sets it up) is part of the same server: `"proxy": {"enabled": true, "port": 8293, "upstream": "http://127.0.0.1:8080/v1", "apiKey": ""}`. `apiKey` is sent to the model server (the app's own key is the memory's token and is never forwarded); `upstream` must be on this machine unless `"allowRemoteUpstream": true`. The MCP server is `node dsh-plugins/packages/tsuzuki/lib/mcp.js [--config <path>] [--forget]`: it reads the same `config.json` and starts the sidecar when it is not running.
+The proxy (`--for chat` sets it up) is part of the same server: `"proxy": {"enabled": true, "port": 8293, "upstream": "http://127.0.0.1:8080/v1", "apiKey": "", "segmentIdleMinutes": 5}`. `apiKey` is sent to the model server (the app's own key is the memory's token and is never forwarded); `upstream` must be on this machine unless `"allowRemoteUpstream": true`. The MCP server is `node dsh-plugins/packages/tsuzuki/lib/mcp.js [--config <path>] [--forget]`: it reads the same `config.json` and starts the sidecar when it is not running.
 
 | Endpoint | Request | Response |
 |---|---|---|
 | `GET /health` | | `{status, version, pid, dataDir, stats, embedding, chat}`: `embedding` and `chat` are `{url, ok, lastError, lastErrorAt}`; `stats.unindexed` counts what is not embedded yet |
 | `POST /v1/memory/messages` | `{session, messages: [{role, text, id?, at?}]}` | `{stored}`, as soon as the messages are stored |
-| `POST /v1/memory/recall` | `{query, session?, budget_tokens?}`: current session excluded, no rerank | `{text, ids, reranked}`; `text` is the `<memory>` block or `""`. `503 {error, cause}` when the query cannot be embedded |
-| `POST /v1/memory/search` | `{query, budget_tokens?, rerank?}`: all sessions | same |
+| `POST /v1/memory/recall` | `{query, session?, budget_tokens?}`: current session excluded, no rerank | `{text, ids, reranked}`; `text` is the `<memory>` block, or `""` (also when nothing is at least `recall.minSimilarity` alike). `503 {error, cause}` when the query cannot be embedded |
+| `POST /v1/memory/search` | `{query, budget_tokens?, rerank?}`: all sessions, no gate (the MCP `recall` tool uses it) | same |
 | `POST /v1/memory/flush` | `{session?}` | `{ok}` |
 | `POST /v1/memory/forget` | exactly one of `{session}`, `{before}`, `{all: true}` | `{turns, units, facts, segments, links, vacuumed}` |
 
@@ -450,12 +483,14 @@ Send `Content-Type: application/json` and, when `config.json` has a `token` (a c
 | Setting (dsh name / sidecar name) | Default | Meaning |
 |---|---|---|
 | `recall.budgetTokens` | `2048` | Size of the memory block per turn (setting P) |
-| `recall.rerank` | `false` | Rerank recall with the chat model. Costs about 16 s per query on a local 27B model. |
+| `recall.minSimilarity` | unset: `0.31` with EmbeddingGemma 300m, off with other models | Add nothing when no message of another session is at least this alike (cosine; M2). `0` turns it off. Searches the model asks for are not gated |
+| `recall.rerank` | `false` | dsh only: rerank recall with the chat model. Costs about 16 s per query on a local 27B model. |
 | `tool.rerank` / `search.rerank` | `false` | Rerank `memory_search` / `POST /v1/memory/search` with the chat model. Off: with Gemma 4 E2B it lowered answers (S2), and setting P has no rerank. |
 | `embedding.queryTimeoutMs` | `3000` | Limit of one query embedding (recall, search) |
 | `llm.rerankTimeoutMs` / `chat.rerankTimeoutMs` | `15000` | Limit of one rerank; then the dense order is used |
 | `llm.baseUrl` / `chat.baseUrl` | dsh: `http://127.0.0.1:8080/v1`; sidecar: empty | Chat endpoint for facts and rerank. Empty turns both off. |
 | `facts.updateLinks` | `true` | Write-time update links |
+| `facts.segmentIdleMinutes` / `proxy.segmentIdleMinutes` | `30` / `5` | Minutes of quiet after which a conversation's open part becomes a segment for facts (`proxy.*`: chats through the proxy) |
 | `capture.redactSecrets` | `true` | Redact secrets before storing (and in queries) |
 | `tool.forget` (Hermes: `memory.tsuzuki.forget` in `config.yaml`) | `false` | Offer the forget tool to the model |
 | `working.enabled` | `false` | Working memory for long coding tasks (experimental) |
@@ -469,6 +504,7 @@ Full list: [`dsh-plugins/packages/tsuzuki/README.md`](dsh-plugins/packages/tsuzu
   - The Hermes installer uses the profile's model endpoint only when it is on this machine; for a remote one it stops unless you pass `--allow-remote-chat` (or `--no-chat`).
   - dsh's `llm.baseUrl` defaults to `http://127.0.0.1:8080/v1`. Make sure that port is your local chat server, or set it.
 - **Secret redaction** is on by default. Before anything is stored, embedded or sent to the fact model (queries too), these become `[REDACTED:KIND]`: API keys and tokens (OpenAI, Anthropic, GitHub, GitLab, Hugging Face, AWS, Google, Slack and Slack webhooks, Stripe, npm, SendGrid, Discord), JWTs, bearer and Basic credentials, credentials inside URLs, `password:`/`OPENAI_API_KEY=`/`token:`-style values (including Japanese labels such as パスワード, and "my password is …" when the value has a digit or a symbol), and Luhn-valid card numbers. It is pattern-based and favours precision. **Unusual secrets can slip through.** Do not paste secrets into chats and count on it.
+- **MCP clients** send what `recall` returns to their model, as part of the conversation: with a cloud model (Claude Desktop, Claude Code, Cursor...), excerpts of earlier conversations go to that provider.
 - **The proxy** sends your chats, with the recalled memory, to the model server you set. It refuses a model server on another machine unless you allow it in the config. It uses the same token and the same checks as the sidecar (it also accepts the host name `host.docker.internal`, for apps in Docker Desktop).
 - **The sidecar.** It listens on `127.0.0.1` only and rejects requests that are not JSON, that carry a browser `Origin`, or that use a `Host` other than loopback (so web pages cannot use it). A config it writes itself, or the Hermes installer writes, has a random `token`: programs that cannot read that file (other users, sandboxes) are refused. Clients (the MCP server, the terminal commands, setup, the Hermes provider) first ask it to prove that it knows the token, without sending it (`GET /health?nonce=`): a program that took the port while the memory was down gets neither the token nor a conversation. A config without a `token` (written by hand, or before this version) lets any program on the machine use it. Another `host` than loopback requires a `token`.
 - **Files.** The memory folder is created readable by you only (0700), the SQLite file and its WAL as 0600, `config.json` as 0600. The embedding engine (`egemma-server`) applies the same Origin, Host and JSON checks.

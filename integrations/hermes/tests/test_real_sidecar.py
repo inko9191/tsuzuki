@@ -110,10 +110,11 @@ class RealSidecarTests(unittest.TestCase):
         first.shutdown()  # drains the queued write
         second = self.provider("s2")
         self.assertIsNone(second.spawned_pid, "the running sidecar is reused")
-        text = second.prefetch("Which city is my home in? Kyoto?", session_id="s2")
+        # Shares words with the stored turn: the toy vectors must clear the sidecar's default recall gate (0.31).
+        text = second.prefetch("Did I move to Kyoto with my cat?", session_id="s2")
         self.assertIn("Kyoto", text)
         self.assertIn("Current date:", text)
-        second.sync_turn("Which city is my home in? Kyoto?", "You said Kyoto.", session_id="s2")
+        second.sync_turn("Did I move to Kyoto with my cat?", "You said Kyoto.", session_id="s2")
         second.shutdown()
         third = self.provider("s3")
         found = json.loads(third.handle_tool_call("tsuzuki_search", {"query": "cat Tama"}))

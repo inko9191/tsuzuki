@@ -60,10 +60,11 @@ export function mcpHandler(sidecar: Sidecar, options: { forget: boolean, session
     async run(args) {
       if (typeof args.query !== 'string' || !args.query.trim()) throw new Error('query must be a non-empty string')
       // Not limited to other conversations: a client keeps one server process for many chats, so "this process"
-      // is not "this conversation"; what this chat remembered may be recalled back, which does no harm.
-      const body: Record<string, unknown> = { query: args.query }
+      // is not "this conversation"; what this chat remembered may be recalled back, which does no harm. A search, not
+      // the automatic recall: the model asked, so `recall.minSimilarity` does not apply (a short query scores lower).
+      const body: Record<string, unknown> = { query: args.query, rerank: false }
       if (typeof args.budget_tokens === 'number') body.budget_tokens = Math.min(8192, Math.max(256, Math.floor(args.budget_tokens)))
-      const found = await sidecar.post('/v1/memory/recall', body)
+      const found = await sidecar.post('/v1/memory/search', body)
       return typeof found.text === 'string' && found.text ? found.text : 'No matching memories.'
     },
   }, {

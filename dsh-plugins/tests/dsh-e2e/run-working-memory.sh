@@ -33,7 +33,7 @@ for arm in S SR; do
   profile="work$arm"
   "$dsh" --profile $profile --from-default-profile headless --dump-config > /dev/null 2>&1
   "$dsh" plugin --profile $profile add "$plugins/dist/dsh-text-embeddings-0.1.0.tgz" \
-    "$plugins/dist/dsh-text-embeddings-openai-0.1.0.tgz" "$plugins/dist/dsh-tsuzuki-0.1.0.tgz" > "$out/$arm.plugin-add.txt" 2>&1
+    "$plugins/dist/dsh-text-embeddings-openai-0.1.0.tgz" "$plugins/dist/dsh-tsuzuki-$(node -p 'require(process.argv[1]).version' "$plugins/packages/tsuzuki/package.json").tgz" > "$out/$arm.plugin-add.txt" 2>&1
   working=false; [ $arm = SR ] && working=true
   cat > "$DSH_HOME/profiles/$profile/cordis.patch.yml" <<YAML
 - id: llm-pi-ai

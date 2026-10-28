@@ -5,7 +5,7 @@ import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { MemoryStore } from '../lib/store.js'
-import { Memory, clip, estimateTokens, formatDate } from '../lib/memory.js'
+import { Memory, RECALL_MIN_SIMILARITY, clip, defaultMinSimilarity, estimateTokens, formatDate, recallNote } from '../lib/memory.js'
 import { ChatUnavailableError, OpenAIChat, OutputLimitError } from '../lib/llm.js'
 
 // Bag-of-words vectors: shared words -> higher cosine. Deterministic, 64 dims.
@@ -232,6 +232,46 @@ test('retrieve: dense order, current session excluded, dated excerpts within bud
   assert.match(r.text, /^Date: 2026\/10\/01 \(Thu\) \d\d:00\n\[o1\] user: My commute/)
   const tight = await memory.retrieve('commute Osaka', { rerank: false, excludeSessions: ['now'], budgetTokens: 5 })
   assert.deepEqual(tight.ids, [])
+})
+
+test('minSimilarity: nothing when no message that could be returned is alike; the current session does not count (M2)', async () => {
+  const { memory } = fresh()
+  await memory.capture({ id: 'o1', session: 'old', role: 'user', text: 'My commute to Osaka takes one hour by train.', at: day })
+  await memory.capture({ id: 'c1', session: 'now', role: 'user', text: 'Which pasta goes with pesto sauce?', at: day + 86_400_000 })
+  const pasta = 'Which pasta goes with pesto sauce?'
+  // Without a gate, the best other excerpt comes back however unrelated (the misfire M2 measured).
+  const ungated = await memory.retrieve(pasta, { rerank: false, excludeSessions: ['now'] })
+  assert.deepEqual(ungated.ids, ['o1'])
+  assert.ok(ungated.similarity < 0.5 && !ungated.gated)
+  const gated = await memory.retrieve(pasta, { rerank: false, excludeSessions: ['now'], minSimilarity: 0.5 })
+  assert.deepEqual([gated.text, gated.ids, gated.gated], ['', [], true])
+  assert.equal(gated.similarity, ungated.similarity)
+  // The current session's own window is alike, but it is not what recall would add: it must not open the gate.
+  const inContext = await memory.retrieve(pasta, { rerank: false, minSimilarity: 0.5, inContext: t => t.id === 'c1' })
+  assert.equal(inContext.gated, true)
+  const counted = await memory.retrieve(pasta, { rerank: false, minSimilarity: 0.5 })
+  assert.ok(counted.similarity > 0.9 && counted.ids.includes('c1'))
+  // An alike message of another session passes.
+  const commute = await memory.retrieve('How long is my commute to Osaka?', { rerank: false, excludeSessions: ['now'], minSimilarity: 0.5 })
+  assert.deepEqual(commute.ids, ['o1'])
+  assert.ok(commute.similarity >= 0.5)
+  // The log line says how many and how alike, never the text.
+  assert.equal(recallNote(commute, 0.5), `recalled 1 messages (the closest is ${commute.similarity.toFixed(2)} alike)`)
+  assert.equal(recallNote(gated, 0.5), `no memory added: the closest earlier message is ${gated.similarity.toFixed(2)} alike, below recall.minSimilarity 0.5`)
+  assert.equal(recallNote({ text: '', ids: [], reranked: false, candidates: 0 }, 0.31), 'no memory added: nothing from other conversations yet')
+})
+
+test('defaultMinSimilarity: 0.31 only for EmbeddingGemma 300m at 768 dimensions (what M2 measured)', () => {
+  for (const name of ['embeddinggemma', 'embeddinggemma:latest', 'embeddinggemma:300m', 'embeddinggemma-300M-Q8_0.gguf',
+    'google/embeddinggemma-300m', 'embeddinggemma-300m', 'openai-compatible:embeddinggemma:768', 'egemma:embeddinggemma-300m:768']) {
+    assert.equal(defaultMinSimilarity(name), RECALL_MIN_SIMILARITY, name)
+  }
+  assert.equal(defaultMinSimilarity('embeddinggemma', 768), RECALL_MIN_SIMILARITY)
+  assert.equal(defaultMinSimilarity('embeddinggemma', 256), 0, 'a Matryoshka width')
+  for (const name of ['nomic-embed-text', 'text-embedding-3-small', 'bge-m3', 'embeddinggemma-2', 'egemma:embeddinggemma-2:768',
+    'EmbeddingGemma2', 'embeddinggemma-v2', 'tsuzuki-embeddinggemma-2', 'qwen3-embedding:0.6b']) {
+    assert.equal(defaultMinSimilarity(name), 0, name)
+  }
 })
 
 test('rerank reorders the top candidates; a failing reranker keeps the dense order', async () => {

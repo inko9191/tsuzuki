@@ -140,13 +140,19 @@ export class RankIndex {
     return this.list ??= [...this.windows.units, ...this.facts!.units]
   }
 
-  /** `pipeline.rank(units(), vectors, query)`. */
-  rank(query: Float32Array): p.Ranked {
+  /**
+   * `order`: `pipeline.rank(units(), vectors, query)`. `best`: the highest score, that is the cosine with the query
+   * (vectors are unit length), of a ranked unit that `counts`; -Infinity when there is none.
+   */
+  rank(query: Float32Array, counts: (u: StoredUnit) => boolean = () => true): { order: p.Ranked, best: number } {
     const lists: p.Ranked[] = []
     if (this.windows.units.length) lists.push(this.windows.top(query))
     const offset = this.windows.units.length
     if (this.facts!.units.length) lists.push(this.facts!.top(query).map(([r, s]) => [r + offset, s] as [number, number]))
-    return p.rrf(lists.length ? lists : [[]])
+    const units = this.units()
+    // Each list is sorted best first.
+    const best = Math.max(Number.NEGATIVE_INFINITY, ...lists.map(l => l.find(([i]) => counts(units[i]!))?.[1] ?? Number.NEGATIVE_INFINITY))
+    return { order: p.rrf(lists.length ? lists : [[]]), best }
   }
 
   /**

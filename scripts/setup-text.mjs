@@ -35,7 +35,7 @@ export const TEXT = {
     unknownArg: a => `unknown option: ${a} (see --help)`,
     needsValue: k => `--${k} needs a value`,
     nodeOld: (v, how) => `Node ${v} is too old: tsuzuki needs Node 22 (22.19 or later) or 24+.\n  Install it with:  ${how}\n  then run this again.`,
-    nodeHow: { darwin: 'brew install node   (or the installer from https://nodejs.org)', win32: 'winget install OpenJS.NodeJS.LTS',
+    nodeHow: { darwin: 'brew install node   (or the installer from https://nodejs.org)', win32: 'winget install OpenJS.NodeJS.LTS   (then open a new terminal: winget updates PATH only for new ones)',
       linux: 'the installer or a package from https://nodejs.org (distribution packages are often too old)' },
     menu: `
 Where will you use the memory? Type one word:
@@ -62,7 +62,7 @@ Where will you use the memory? Type one word:
     llamaStep: 'Looking for llama.cpp (llama-server)',
     llamaMissing: (where, how) => `llama-server was not found ${where}. Install llama.cpp first:\n    ${how}\n  then run this again (or pass --llama-server <path to llama-server>).`,
     llamaWhere: g => g ? `at ${g}` : 'on PATH',
-    llamaHow: { darwin: 'brew install llama.cpp', win32: 'winget install llama.cpp   (or a Windows build from https://github.com/ggml-org/llama.cpp/releases)',
+    llamaHow: { darwin: 'brew install llama.cpp', win32: 'winget install llama.cpp   (or a Windows build from https://github.com/ggml-org/llama.cpp/releases),\n    then open a new terminal (winget updates PATH only for new ones)',
       linux: 'a Linux build from https://github.com/ggml-org/llama.cpp/releases (or brew install llama.cpp)' },
     llamaBad: (bin, why, text) => `${bin} --help did not work as expected (${why}):\n${text}\n  What to do: install a recent llama.cpp (one with --embedding) and pass its llama-server with --llama-server.`,
     modelsStep: dir => `Models (in ${dir})`,
@@ -199,7 +199,7 @@ Where will you use the memory? Type one word:
     unknownArg: a => `知らないオプションです：${a}（--help を参照）`,
     needsValue: k => `--${k} には値が要ります`,
     nodeOld: (v, how) => `Node ${v} は古すぎます。tsuzuki には Node 22（22.19 以上）か 24 以上が要ります。\n  入れ方：${how}\n  入れたら、もう一度実行してください。`,
-    nodeHow: { darwin: 'brew install node（または https://nodejs.org のインストーラー）', win32: 'winget install OpenJS.NodeJS.LTS',
+    nodeHow: { darwin: 'brew install node（または https://nodejs.org のインストーラー）', win32: 'winget install OpenJS.NodeJS.LTS（入れたら新しいターミナルを開く。winget は新しいターミナルにしか PATH を反映しない）',
       linux: 'https://nodejs.org のインストーラーかパッケージ（ディストリビューションのパッケージは古いことが多い）' },
     menu: `
 記憶をどこで使いますか？ 言葉で 1 つ入力してください：
@@ -226,7 +226,7 @@ Where will you use the memory? Type one word:
     llamaStep: 'llama.cpp（llama-server）を探す',
     llamaMissing: (where, how) => `llama-server が${where}見つかりません。先に llama.cpp を入れてください：\n    ${how}\n  入れたらもう一度実行してください（または --llama-server <llama-server の場所> を付ける）。`,
     llamaWhere: g => g ? ` ${g} に` : ' PATH に',
-    llamaHow: { darwin: 'brew install llama.cpp', win32: 'winget install llama.cpp（または https://github.com/ggml-org/llama.cpp/releases の Windows 版）',
+    llamaHow: { darwin: 'brew install llama.cpp', win32: 'winget install llama.cpp（または https://github.com/ggml-org/llama.cpp/releases の Windows 版）。\n    入れたら新しいターミナルを開く（winget は新しいターミナルにしか PATH を反映しない）',
       linux: 'https://github.com/ggml-org/llama.cpp/releases の Linux 版（または brew install llama.cpp）' },
     llamaBad: (bin, why, text) => `${bin} --help が思ったように動きません（${why}）：\n${text}\n  どうするか：新しい llama.cpp（--embedding があるもの）を入れ、その llama-server を --llama-server で指定してください。`,
     modelsStep: dir => `モデル（${dir}）`,

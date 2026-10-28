@@ -7,9 +7,12 @@ const argv = process.argv.slice(2)
 const value = name => { const i = argv.indexOf(name); return i >= 0 ? argv[i + 1] : undefined }
 if (process.env.FAKE_LLAMA_LOG) appendFileSync(process.env.FAKE_LLAMA_LOG, JSON.stringify(argv) + '\n')
 const alias = value('--alias'), port = Number(value('--port'))
+// The EmbeddingGemma task prompts are left out: counted as words, they would pull the cosine of these short texts
+// below the default recall gate (recall.minSimilarity).
 const vector = text => {
   const v = new Array(64).fill(0)
-  for (const w of text.toLowerCase().match(/[a-z0-9]+/g) ?? []) { let h = 7; for (const c of w) h = (h * 31 + c.charCodeAt(0)) >>> 0; v[h % 64] += 1 }
+  const body = text.replace(/^task: search result \| query: /, '').replace(/^title: none \| text: /, '')
+  for (const w of body.toLowerCase().match(/[a-z0-9]+/g) ?? []) { let h = 7; for (const c of w) h = (h * 31 + c.charCodeAt(0)) >>> 0; v[h % 64] += 1 }
   const n = Math.hypot(...v) || 1
   return v.map(x => x / n)
 }

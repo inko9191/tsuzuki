@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.2.1 (2026-10-28)
+
+**No memory for messages that need none**
+- Automatic recall (the chat proxy, Hermes, the dsh plugin) adds nothing when no earlier message is alike: below a cosine of 0.31 with EmbeddingGemma 300m (`recall.minSimilarity`). In the pre-registered test M2 (136 new users, Gemma 4 E2B answering), replies that refuse ("it is not in my memory") fell from 8.3% to 1.8% and all harmful replies from 14.9% to 6.4%, at the same accuracy on questions that need memory (52.2% → 51.5%, −0.7 points [−2.2, 0.0]). See the README's Results.
+- 0.31 was measured with EmbeddingGemma 300m only, so with another embedding model the gate is off unless you set `recall.minSimilarity`; the memory server says so when it starts. The current conversation never counts as "alike".
+- Searches the model asks for are not gated: the MCP `recall` tool now uses `/v1/memory/search`.
+- The memory server's log has one line per automatic recall: how many earlier messages were added and how alike the closest one was (never their text).
+
+**Facts from chat apps sooner**
+- Through the proxy, a chat counts as ended after 5 quiet minutes (`proxy.segmentIdleMinutes`) and its facts are made then; it waited 30, because chat apps never say that a chat ended.
+
+**Fixes**
+- `node scripts/setup.mjs` on a Node that is too old (Ubuntu 22.04 ships Node 12) says so and how to update, instead of stopping at a syntax error.
+- The chat setup takes a server on port 8080 for a model server only when it lists models; Open WebUI also uses 8080, and the proxy would have sent chats to it.
+- On Windows, setup says to open a new terminal after `winget install`.
+- The DeepSeek Harness installer (`install-desktop.sh`) and the dsh end-to-end tests install the current package versions (they named 0.1.0).
+- No `ExperimentalWarning: SQLite` in the memory server's log.
+
+**README**
+- English results with Gemma 4 E2B: "at least as well as the whole history" (the pre-registered verdict), not "better".
+- The llama.cpp embedding port is 8291 everywhere (the manual install said 8081).
+- Which chat apps work with the proxy (apps where you set the URL, such as Open WebUI; not LM Studio's or Ollama's own chat windows), where the API key is, room in the model server's context, git as a prerequisite, how to remove tsuzuki, and that MCP clients on a cloud model send what they recall to that model.
+
 ## 0.2.0 (2026-10-27)
 
 **Use it from more places**
